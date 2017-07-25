@@ -1,0 +1,58 @@
+require(dplyr)
+require(data.table)
+#require(Rserve)
+require(plotly)
+
+
+#set working directory
+setwd('C:\\Users\\johns326\\Desktop\\Northwestern\\498')
+
+#load data
+df <- fread('170626 5 County Closed Data since 150101.csv', data.table=FALSE,na.strings=c('','NA'))
+names(df) <- toupper(gsub(' ','\\.',names(df)))
+# put variables in alphabetical order
+vars <- sort(names(df))
+df <- df[,vars]
+rm(vars)
+
+factorvars <- c('Stat','County','MLS Area Major','Mailing City','City','Zip5','School District','CDOM','Seller Concession YN','Waterfront YN','Waterfront Description','Ownership','Area','Foundation','DOM','Last Status','Transaction Type')
+
+#convert DATE columns to date format
+datevars <- c('LISTING.CONTRACT.DATE','PENDING.DATE','CLOSE.DATE','OFF.MARKET.DATE','EXPIRATION.DATE')
+df[,datevars] <- lapply(df[,datevars], as.Date, format = "%m/%d/%Y")
+
+#convert int variables to int
+intvars <- c('ORIGINAL.LIST.PRICE','LIST.PRICE','CLOSE.PRICE','EST.FIN.ABV.GRD.SQFT','EST.TOT.FIN.SQFT',
+             'YEAR.BUILT','WATER.FRONTAGE.FEET','BEDS.TOTAL','BATHS.FULL','BATHS.HALF')
+df[,intvars] <- lapply(df[,intvars], function(x) as.numeric(gsub("NA|[^[:alnum:]]","",x)))
+
+
+#Count NAs
+na_count <-sapply(df, function(x) sum(is.na(x)))
+sum(is.na(df))
+na_count
+
+#Count Unique values
+unique_count <- sapply(df, function(x) length(unique(x)))
+unique_count
+
+#load FIPS coads
+fips <- fread('County FIPS Codes.csv', data.table = FALSE)
+names(fips) <- toupper(names(fips))
+
+#add FIPS codes to df
+df<- df %>% left_join(fips)
+
+#manipulate data
+df <- df %>%
+  mutate(
+    CLOSE.PRICE.PER.SQFT = CLOSE.PRICE/EST.TOT.FIN.SQFT,
+    SALE.TIMELINE = PENDING.DATE - LISTING.CONTRACT.DATE,
+    CLOSE.PRICE.DELTA = (CLOSE.PRICE - ORIGINAL.LIST.PRICE)/LIST.PRICE,
+    ZIP5 = gsub("[^0-9]","",ZIP5),
+    ZIP.LENGTH = if_else(is.na(df$ZIP5)|nchar(df$ZIP5)!=5,1,0),
+    GEO = toupper(paste(MLS.AREA.MAJOR,MAILING.CITY,CITY,sep=''))
+  )
+
+fwrite(df,'Project Data.csv')
+
