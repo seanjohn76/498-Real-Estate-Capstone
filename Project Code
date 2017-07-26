@@ -1,0 +1,125 @@
+
+#############################################
+# PREDICT 498 #
+# Real Estate Group #
+#############################################
+
+
+# COMBINATION PREDICTION SCRIPT
+
+
+# TO USE THIS SCRIPT, SET WORKING DIRECTORY TO PROJECT DIRECTORY
+# FROM RSTUDIO: SELECT Session > Set Working Directory > To Project Directory
+
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# HEADER: LOAD PACKAGES AND DATA
+
+# load libraries but install them first
+list.of.packages <- c(
+  "car" 
+  ,"missForest" #fill in missing values
+  ,"Hmisc"
+  ,"corrplot" #correlation plot
+  ,"lattice" #quantile plots
+  ,"leaps" # Crossfold validation for best subsets
+  ,"MASS" # for qda and lda
+  ,"gam" # for gam
+  ,"class" # for knn
+  ,"randomForest" #RF
+  ,"xgboost" #gradient boosting
+  ,"Matrix" #sparse.model.matrix
+  ,"glmnet"
+  ,"leaps"
+  ,"reshape"
+  ,"tibble"
+  ,"tidyverse" # tidyverse is a wrapper that contains dplyr, ggplot, tidyr, readr and a bunch of other great Hadley stuff
+)
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+lapply(list.of.packages,library, character.only=T)
+
+setwd("C:/Users/lstottsg/Desktop/Laura School/Summer 2017/498")
+
+# Load Data
+rm(list=ls())
+
+mls <- read.csv("2015MLS.csv", stringsAsFactors=FALSE, na.strings=c("NA", "-", "?",""))
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+##########################################
+#        Exploratory Data Analyis        #
+##########################################
+mls.eda <- mls
+
+#view data dimensions
+dim(mls.eda)
+
+str(mls.eda)
+
+attach(mls.eda)
+
+#convert dates from character to date
+mls.eda$Listing.Contract.Date <- as.Date(mls$Listing.Contract.Date, "%Y-%m-%d")
+mls.eda$Pending.Date <- as.Date(mls$Pending.Date, "%Y-%m-%d")
+mls.eda$Close.Date <- as.Date(mls$Close.Date, "%Y-%m-%d")
+mls.eda$Off.Market.Date <- as.Date(mls$Off.Market.Date, "%Y-%m-%d")
+mls.eda$Expiration.Date <- as.Date(mls$Expiration.Date, "%Y-%m-%d")
+
+#create TimeListToSale variable for prediction
+mls.eda$listToClose <- (mls.eda$Pending.Date - mls.eda$Listing.Contract.Date)
+
+# quick view of the data
+glimpse(mls.eda)
+
+summary(mls.eda)
+
+# Missing data?
+#2 Original List Price
+#3 Close Price
+# 14 Est Fin Abv Grd SqFt
+#18 Zip5
+#20 Year Built
+#8 Pending Date
+#8977 CDOM
+#772 Expiration Date
+#121074 Water Frontage Feet
+#15 Area
+#740 DOM
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# HANDLE NA VALUES
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# find median "original list price"
+Original.List.Price.med <- median(Original.List.Price, na.rm = TRUE)
+
+# find median "close price"
+Close.Price.med <- median(Close.Price, na.rm = TRUE)
+
+# find median "est fin abv grd sqft"
+Est.Fin.Abv.Grd.SqFt.med <- median(Est.Fin.Abv.Grd.SqFt, na.rm = TRUE)
+
+# populate "zip5" based on zip of same mailing city
+mls.eda$Zip5 <- ifelse(is.na(mls.eda$Zip5), mls.eda$Zip5, mls.eda$Zip5)
+
+# find median "year built"
+Year.Built.med <- median(Year.Built, na.rm = TRUE)
+
+# replace CDOM missing values with ???
+
+# remove Expiration Date variable b/c cannot use to predict
+
+# find median "area"
+Area <- median(Area, na.rm = TRUE)
+
+# replace DOM missing values with ???
+
+# change NA values for water frontage feet to zero
+mls.eda$Water.Frontage.Feet[is.na(mls.eda$Water.Frontage.Feet)] <- 0
+
+# remove further observations with missing values ("pending date")
+mls.eda <- na.omit(mls.eda)
