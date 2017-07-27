@@ -29,7 +29,7 @@ list.of.packages <- c(
   ,"tibble"
   ,"tidyverse" # tidyverse is a wrapper that contains dplyr, ggplot, tidyr, readr and a bunch of other great Hadley stuff
   ,"survival"
-  ,"OIsurv" # Aumatically loads KMsurv
+  ,"OIsurv" # Automatically loads KMsurv - bmt example
   ,"ranger"
 )
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
@@ -83,7 +83,14 @@ attach(mls.eda)
 mls.eda$DaysListToPending <- as.numeric(mls.eda$`Pending Date` - mls.eda$`Listing Contract Date`)
 
 #create PendingYN variable for prediction
-mls.eda$PendingYN <- as.factor()
+#this will include status of pending or sold = 1,  conditionally or unconditionally withdrawn = 0
+mls.eda$PendingIndicator <- mls.eda$Stat                           
+levels(mls.eda$PendingIndicator) <- c(0,1,1,0)              
+mls.eda$PendingIndicator <- as.numeric(as.character(mls.eda$PendingIndicator))  
+
+#we have a data set heavily weighted with pending and sold properties
+mean(mls.eda$PendingIndicator, na.rm = T)
+#0.999341
 
 #view data dimensions
 dim(mls.eda)
@@ -275,7 +282,7 @@ mls.model <- mls.eda
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # Kaplan Meier Survival Curve
-y_mls <- Surv(mls.model$DaysListToPending, mls.model$PendingYN)
+y_mls <- Surv(mls.model$DaysListToPending, mls.model$PendingIndicator)
 y_mls
 
 fit1_mls <- survfit(y_mls ~ 1)
