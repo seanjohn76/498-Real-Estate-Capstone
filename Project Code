@@ -1,4 +1,6 @@
 
+
+
 #############################################
 # PREDICT 498 #
 # Real Estate Group #
@@ -45,8 +47,17 @@ setwd("C:/Users/lstottsg/Desktop/Laura School/Summer 2017/498")
 # Load Data
 rm(list=ls())
 
-mls <- read.csv("2015MLS.csv", stringsAsFactors=FALSE, na.strings=c("NA", "-", "?",""))
+#mls <- read.csv("2015MLS-weka.csv", stringsAsFactors=FALSE, na.strings=c("NA", "-", "?",""))
 
+X2015MLS_weka <- read_csv("C:/Users/lstottsg/Desktop/Laura School/Summer 2017/498/2015MLS-weka.csv", 
+                          col_types = cols(`Close Date` = col_date(format = "%m/%d/%Y"), 
+                                           `Expiration Date` = col_date(format = "%m/%d/%Y"), 
+                                           `Listing Contract Date` = col_date(format = "%m/%d/%Y"), 
+                                           `Off Market Date` = col_date(format = "%m/%d/%Y"), 
+                                           `Pending Date` = col_date(format = "%m/%d/%Y"), 
+                                           `Water Frontage Feet` = col_integer()))
+
+mls <- X2015MLS_weka
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
@@ -62,15 +73,9 @@ str(mls.eda)
 
 attach(mls.eda)
 
-#convert dates from character to date
-mls.eda$Listing.Contract.Date <- as.Date(mls$Listing.Contract.Date, "%Y-%m-%d")
-mls.eda$Pending.Date <- as.Date(mls$Pending.Date, "%Y-%m-%d")
-mls.eda$Close.Date <- as.Date(mls$Close.Date, "%Y-%m-%d")
-mls.eda$Off.Market.Date <- as.Date(mls$Off.Market.Date, "%Y-%m-%d")
-mls.eda$Expiration.Date <- as.Date(mls$Expiration.Date, "%Y-%m-%d")
 
 #create TimeListToSale variable for prediction
-mls.eda$listToClose <- (mls.eda$Pending.Date - mls.eda$Listing.Contract.Date)
+mls.eda$ListToPending <- (mls.eda$`Pending Date` - mls.eda$`Listing Contract Date`)
 
 # quick view of the data
 glimpse(mls.eda)
@@ -91,35 +96,55 @@ summary(mls.eda)
 #740 DOM
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# REMOVE INELIGIBLE / NON-PREDICTIVE FEATURES
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# variables to exclude from training and test data
+exclude_vars <- 
+  c("Ty"
+    ,"MLS"
+    ,"List Office Phone"
+    ,"Selling Office Phone"
+    ,"Off Market Date"
+    ,"Expiration Date"
+    ,"Close Date"
+    ,"Close Price"
+  )
+
+mls <- mls[!names(mls)%in%exclude_vars]
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # HANDLE NA VALUES
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# find median "original list price"
+# find median "original list price", set NA to median
 Original.List.Price.med <- median(Original.List.Price, na.rm = TRUE)
+ifelse(is.na(mls.eda$Original.List.Price), Original.List.Price.med, mls.eda$Original.List.Price)
 
-# find median "close price"
-Close.Price.med <- median(Close.Price, na.rm = TRUE)
-
-# find median "est fin abv grd sqft"
+# find median "est fin abv grd sqft", set NA to median
 Est.Fin.Abv.Grd.SqFt.med <- median(Est.Fin.Abv.Grd.SqFt, na.rm = TRUE)
+ifelse(is.na(mls.eda$Est.Fin.Abv.Grd.SqFt), Est.Fin.Abv.Grd.SqFt.med, mls.eda$Est.Fin.Abv.Grd.SqFt)
 
 # populate "zip5" based on zip of same mailing city
-mls.eda$Zip5 <- ifelse(is.na(mls.eda$Zip5), mls.eda$Zip5, mls.eda$Zip5)
 
-# find median "year built"
+
+# find median "year built", set NA to median
 Year.Built.med <- median(Year.Built, na.rm = TRUE)
+ifelse(is.na(mls.eda$Year.Built), Year.Built.med, mls.eda$Year.Built)
 
 # replace CDOM missing values with ???
 
-# remove Expiration Date variable b/c cannot use to predict
 
 # find median "area"
-Area <- median(Area, na.rm = TRUE)
+Area.med <- median(Area, na.rm = TRUE)
+ifelse(is.na(mls.eda$Area), Area.med, mls.eda$Area)
 
 # replace DOM missing values with ???
 
+
 # change NA values for water frontage feet to zero
-mls.eda$Water.Frontage.Feet[is.na(mls.eda$Water.Frontage.Feet)] <- 0
+ifelse(is.na(mls.eda$Water.Frontage.Feet), 0, mls.eda$Water.Frontage.Feet)
 
 # remove further observations with missing values ("pending date")
 mls.eda <- na.omit(mls.eda)
