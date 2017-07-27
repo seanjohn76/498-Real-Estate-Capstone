@@ -1,18 +1,8 @@
 
-
-
 #############################################
 # PREDICT 498 #
 # Real Estate Group #
 #############################################
-
-
-# COMBINATION PREDICTION SCRIPT
-
-
-# TO USE THIS SCRIPT, SET WORKING DIRECTORY TO PROJECT DIRECTORY
-# FROM RSTUDIO: SELECT Session > Set Working Directory > To Project Directory
-
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -119,19 +109,19 @@ mls <- mls[!names(mls)%in%exclude_vars]
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # find median "original list price", set NA to median
-Original.List.Price.med <- median(Original.List.Price, na.rm = TRUE)
-ifelse(is.na(mls.eda$Original.List.Price), Original.List.Price.med, mls.eda$Original.List.Price)
+Original.List.Price.med <- median(`Original List Price`, na.rm = TRUE)
+ifelse(is.na(mls.eda$`Original List Price`), Original.List.Price.med, mls.eda$`Original List Price`)
 
 # find median "est fin abv grd sqft", set NA to median
-Est.Fin.Abv.Grd.SqFt.med <- median(Est.Fin.Abv.Grd.SqFt, na.rm = TRUE)
-ifelse(is.na(mls.eda$Est.Fin.Abv.Grd.SqFt), Est.Fin.Abv.Grd.SqFt.med, mls.eda$Est.Fin.Abv.Grd.SqFt)
+Est.Fin.Abv.Grd.SqFt.med <- median(`Est Fin Abv Grd SqFt`, na.rm = TRUE)
+ifelse(is.na(mls.eda$`Est Fin Abv Grd SqFt`), Est.Fin.Abv.Grd.SqFt.med, mls.eda$`Est Fin Abv Grd SqFt`)
 
 # populate "zip5" based on zip of same mailing city
 
 
 # find median "year built", set NA to median
-Year.Built.med <- median(Year.Built, na.rm = TRUE)
-ifelse(is.na(mls.eda$Year.Built), Year.Built.med, mls.eda$Year.Built)
+Year.Built.med <- median(`Year Built`, na.rm = TRUE)
+ifelse(is.na(mls.eda$`Year Built`), Year.Built.med, mls.eda$`Year Built`)
 
 # replace CDOM missing values with ???
 
@@ -144,7 +134,4 @@ ifelse(is.na(mls.eda$Area), Area.med, mls.eda$Area)
 
 
 # change NA values for water frontage feet to zero
-ifelse(is.na(mls.eda$Water.Frontage.Feet), 0, mls.eda$Water.Frontage.Feet)
-
-# remove further observations with missing values ("pending date")
-mls.eda <- na.omit(mls.eda)
+ifelse(is.na(mls.eda$`Water Frontage Feet`), 0, mls.eda$`Water Frontage Feet`)
