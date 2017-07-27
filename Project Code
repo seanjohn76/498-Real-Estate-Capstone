@@ -79,19 +79,6 @@ mls.eda <- mls
 
 attach(mls.eda)
 
-#create DaysListToPending variable for prediction
-mls.eda$DaysListToPending <- as.numeric(mls.eda$`Pending Date` - mls.eda$`Listing Contract Date`)
-
-#create PendingYN variable for prediction
-#this will include status of pending or sold = 1,  conditionally or unconditionally withdrawn = 0
-mls.eda$PendingIndicator <- mls.eda$Stat                           
-levels(mls.eda$PendingIndicator) <- c(0,1,1,0)              
-mls.eda$PendingIndicator <- as.numeric(as.character(mls.eda$PendingIndicator))  
-
-#we have a data set heavily weighted with pending and sold properties
-mean(mls.eda$PendingIndicator, na.rm = T)
-#0.999341
-
 #view data dimensions
 dim(mls.eda)
 
@@ -103,6 +90,7 @@ glimpse(mls.eda)
 summary(mls.eda)
 
 # Missing data?
+#~~~~~~~~~~~~~~
 #2 Original List Price
 #3 Close Price
 # 14 Est Fin Abv Grd SqFt
@@ -114,6 +102,11 @@ summary(mls.eda)
 #121074 Water Frontage Feet
 #15 Area
 #740 DOM
+#8 Pending Date
+#83 Waterfront YN
+#679 Seller Concession YN
+#123 Ownership
+#53 Last Status
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # REMOVE INELIGIBLE / NON-PREDICTIVE FEATURES
@@ -129,6 +122,9 @@ exclude_vars <-
     ,"Expiration Date"
     ,"Close Date"
     ,"Close Price"
+    ,"CDOM"
+    ,"DOM"
+    ,"Last Status"
   )
 
 mls.eda <- mls.eda[!names(mls.eda)%in%exclude_vars]
@@ -140,32 +136,61 @@ mls.eda <- mls.eda[!names(mls.eda)%in%exclude_vars]
 
 # find median "original list price", set NA to median
 Original.List.Price.med <- median(`Original List Price`, na.rm = TRUE)
-ifelse(is.na(mls.eda$`Original List Price`), Original.List.Price.med, mls.eda$`Original List Price`)
+mls.eda$`Original List Price` <- ifelse(is.na(mls.eda$`Original List Price`), Original.List.Price.med, mls.eda$`Original List Price`)
 
 # find median "est fin abv grd sqft", set NA to median
 Est.Fin.Abv.Grd.SqFt.med <- median(`Est Fin Abv Grd SqFt`, na.rm = TRUE)
-ifelse(is.na(mls.eda$`Est Fin Abv Grd SqFt`), Est.Fin.Abv.Grd.SqFt.med, mls.eda$`Est Fin Abv Grd SqFt`)
+mls.eda$`Est Fin Abv Grd SqFt` <- ifelse(is.na(mls.eda$`Est Fin Abv Grd SqFt`), Est.Fin.Abv.Grd.SqFt.med, mls.eda$`Est Fin Abv Grd SqFt`)
 
-# populate "zip5" based on zip of same mailing city
-
+# populate "zip5" based on zip of same MLS Major Area, Mailing City, City, School District, Street Name as applicable/available
+# **********I did this manually in the excel file based on the dirty data for the 2015 sample**********
 
 # find median "year built", set NA to median
 Year.Built.med <- median(`Year Built`, na.rm = TRUE)
-ifelse(is.na(mls.eda$`Year Built`), Year.Built.med, mls.eda$`Year Built`)
-
-# replace CDOM missing values with ???
-
+mls.eda$`Year Built` <- ifelse(is.na(mls.eda$`Year Built`), Year.Built.med, mls.eda$`Year Built`)
 
 # find median "area"
 Area.med <- median(Area, na.rm = TRUE)
-ifelse(is.na(mls.eda$Area), Area.med, mls.eda$Area)
-
-# replace DOM missing values with ???
-
+mls.eda$Area <- ifelse(is.na(mls.eda$Area), Area.med, mls.eda$Area)
 
 # change NA values for water frontage feet to zero
-ifelse(is.na(mls.eda$`Water Frontage Feet`), 0, mls.eda$`Water Frontage Feet`)
+mls.eda$`Water Frontage Feet` <- ifelse(is.na(mls.eda$`Water Frontage Feet`), 0, mls.eda$`Water Frontage Feet`)
 
+# remove observations with NA Pending Date (cannot use Close Date or Off Market Date to populate because post-pending dates)
+mls.eda <- mls.eda[!is.na(mls.eda$`Pending Date`),]
+
+# populate Waterfront YN with Y if there is a Waterfront Name or Description for property, else N
+mls.eda$`Waterfront YN` <- ifelse(is.na(mls.eda$`Waterfront YN`)
+                                  , ifelse(is.na(mls.eda$`Waterfront Name`)
+                                           , ifelse(is.na(mls.eda$`Waterfront Description`)
+                                                      , 'N'
+                                                      , 'Y')
+                                           , 'Y')
+                                  , mls.eda$`Waterfront YN`)
+
+
+# populate Seller Concession YN with ??? (Not sure best way)
+
+# populate Ownership with ??? (Not sure best way)
+
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# CREATE PREDICTOR VARIABLES
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#create DaysListToPending variable for prediction
+mls.eda$DaysListToPending <- as.numeric(mls.eda$`Pending Date` - mls.eda$`Listing Contract Date`)
+
+#create PendingYN variable for prediction
+#this will include status of pending or sold = 1,  conditionally or unconditionally withdrawn = 0
+mls.eda$PendingIndicator <- mls.eda$Stat                           
+levels(mls.eda$PendingIndicator) <- c(0,1,1,0)              
+mls.eda$PendingIndicator <- as.numeric(as.character(mls.eda$PendingIndicator))  
+
+#we have a data set heavily weighted with pending and sold properties
+mean(mls.eda$PendingIndicator, na.rm = T)
+#0.9999341
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # REVIEW SUMMARY DATA AGAIN
