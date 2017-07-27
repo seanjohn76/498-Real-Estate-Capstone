@@ -1,4 +1,5 @@
 
+
 #############################################
 # PREDICT 498 #
 # Real Estate Group #
@@ -135,3 +136,58 @@ ifelse(is.na(mls.eda$Area), Area.med, mls.eda$Area)
 
 # change NA values for water frontage feet to zero
 ifelse(is.na(mls.eda$`Water Frontage Feet`), 0, mls.eda$`Water Frontage Feet`)
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# REVIEW SUMMARY DATA AGAIN
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+#look at summary again after imputations and removals
+summary(mls.eda)
+
+#Hmisc package to get further info like high/low, distinct, mean, frequency
+library(Hmisc)
+describe(mls.eda)
+
+#load pych package to see skew, kurtosis, se for numeric values
+library(psych)
+describe(mls.eda)
+
+
+
+
+
+
+
+
+
+
+# remove further observations with missing values???
+#mls.eda <- na.omit(mls.eda)
+
+
+
+
+
+
+
+
+
+
+#subset by type
+mls.cat <- mls.eda[,c('County', 'MLS Area Major', 'Mailing City', 'City', 'Zip5',
+                           'School District', 'Waterfront Name', 'Waterfront Description', 'Ownership',
+                           'Foundation', 'Address', 'List Office Name', 'Selling Office Name',
+                           'List Agent Full Name', 'Selling Agent Full Name')]
+
+mls.bin <- mls.eda[,c('Seller Concession YN', 'Waterfront YN')]
+
+mls.num <- mls.eda[,c('Original List Price', 'List Price', 'Est Fin Abv Grd SqFt',
+                          'Est Tot Fin SqFt', 'Area', 'Water Frontage Feet', 'Year Built')]
+
+#scatterplot matrix of numeric values
+scatterplotMatrix(mls.num, smoother=FALSE)
+
+#Pearson correlations for numeric values
+rcorr(as.matrix(mls.num), type="pearson")
