@@ -1,5 +1,4 @@
 
-
 #############################################
 # PREDICT 498 #
 # Real Estate Group #
@@ -7,7 +6,8 @@
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# HEADER: LOAD PACKAGES AND DATA
+# LOAD PACKAGES AND DATA
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # load libraries but install them first
 list.of.packages <- c(
@@ -38,37 +38,53 @@ setwd("C:/Users/lstottsg/Desktop/Laura School/Summer 2017/498")
 # Load Data
 rm(list=ls())
 
-#mls <- read.csv("2015MLS-weka.csv", stringsAsFactors=FALSE, na.strings=c("NA", "-", "?",""))
 
 X2015MLS_weka <- read_csv("C:/Users/lstottsg/Desktop/Laura School/Summer 2017/498/2015MLS-weka.csv", 
-                          col_types = cols(`Close Date` = col_date(format = "%m/%d/%Y"), 
+                          col_types = cols(`Baths Full` = col_factor(levels = c("0", 
+                                                                                "1", "2", "3", "4", "5", "6", "7", 
+                                                                                "8", "9", "10", "11")), 
+                                           `Baths Half` = col_factor(levels = c("0", "1", "2", "3", "4", "5", "6")), 
+                                           `Beds Total` = col_factor(levels = c("0", "1", "2", "3", "4", "5", "6", "7", 
+                                                                                "8", "9", "10", "11", "12", "13", 
+                                                                                "14", "15", "2215")), CDOM = col_number(), 
+                                           `Close Date` = col_date(format = "%m/%d/%Y"), 
+                                           County = col_factor(levels = c("Livingston", 
+                                                                          "Macomb", "Oakland", "St. Clair", 
+                                                                          "Wayne")), DOM = col_number(), 
                                            `Expiration Date` = col_date(format = "%m/%d/%Y"), 
-                                           `Listing Contract Date` = col_date(format = "%m/%d/%Y"), 
+                                           `Last Status` = col_factor(levels = c("ACTV", 
+                                                                                 "CCS", "CWTH", "EXPD", "PEND", 
+                                                                                 "SOLD", "UWTH")), `Listing Contract Date` = col_date(format = "%m/%d/%Y"), 
                                            `Off Market Date` = col_date(format = "%m/%d/%Y"), 
-                                           `Pending Date` = col_date(format = "%m/%d/%Y"), 
-                                           `Water Frontage Feet` = col_integer()))
+                                           Ownership = col_factor(levels = c("Bank - Owned", 
+                                                                             "Corporate/Relocation", "Fannie MAE/Freddie MAC", 
+                                                                             "Government - Owned", "Other/See Remarks", 
+                                                                             "Private - Owned")), `Pending Date` = col_date(format = "%m/%d/%Y"), 
+                                           `Seller Concession YN` = col_factor(levels = c("No", 
+                                                                                          "Yes")), Stat = col_factor(levels = c("CWTH", 
+                                                                                                                                "PEND", "SOLD", "UWTH")), `Water Frontage Feet` = col_number(), 
+                                           `Waterfront YN` = col_factor(levels = c("No", 
+                                                                                   "Yes")), `Year Built` = col_number(), 
+                                           Zip5 = col_number()))
+
 
 mls <- X2015MLS_weka
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
 ##########################################
 #        Exploratory Data Analyis        #
 ##########################################
 mls.eda <- mls
+
+attach(mls.eda)
+
+#create DaysListToPending variable for prediction
+mls.eda$DaysListToPending <- as.numeric(mls.eda$`Pending Date` - mls.eda$`Listing Contract Date`)
 
 #view data dimensions
 dim(mls.eda)
 
 str(mls.eda)
 
-attach(mls.eda)
-
-
-#create TimeListToSale variable for prediction
-mls.eda$ListToPending <- (mls.eda$`Pending Date` - mls.eda$`Listing Contract Date`)
-
-# quick view of the data
+# quick views of the data
 glimpse(mls.eda)
 
 summary(mls.eda)
@@ -102,7 +118,7 @@ exclude_vars <-
     ,"Close Price"
   )
 
-mls <- mls[!names(mls)%in%exclude_vars]
+mls.eda <- mls.eda[!names(mls.eda)%in%exclude_vars]
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -145,6 +161,7 @@ ifelse(is.na(mls.eda$`Water Frontage Feet`), 0, mls.eda$`Water Frontage Feet`)
 
 #look at summary again after imputations and removals
 summary(mls.eda)
+glimpse(mls.eda)
 
 #Hmisc package to get further info like high/low, distinct, mean, frequency
 library(Hmisc)
@@ -155,25 +172,13 @@ library(psych)
 describe(mls.eda)
 
 
-
-
-
-
-
-
-
-
 # remove further observations with missing values???
 #mls.eda <- na.omit(mls.eda)
 
 
-
-
-
-
-
-
-
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# SUBSET
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 #subset by type
 mls.cat <- mls.eda[,c('County', 'MLS Area Major', 'Mailing City', 'City', 'Zip5',
@@ -186,8 +191,87 @@ mls.bin <- mls.eda[,c('Seller Concession YN', 'Waterfront YN')]
 mls.num <- mls.eda[,c('Original List Price', 'List Price', 'Est Fin Abv Grd SqFt',
                           'Est Tot Fin SqFt', 'Area', 'Water Frontage Feet', 'Year Built')]
 
-#scatterplot matrix of numeric values
-scatterplotMatrix(mls.num, smoother=FALSE)
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# CORRELATIONS
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 #Pearson correlations for numeric values
 rcorr(as.matrix(mls.num), type="pearson")
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# PLOT
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#scatterplot matrix of numeric values
+scatterplotMatrix(mls.num, smoother=FALSE)
+
+
+##########################################
+#        TRANSFORMATIONS                 #
+##########################################
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# HANDLE OUTLIERS
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# BINNING
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# create bins of 10
+bin_10 <- function(x) ntile(x,10)
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# MATHEMATICAL
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# square transform
+var_square <- function(x) x^2
+
+# log transform
+var_log <- function(x) log(abs(x)+1)*sign(x)
+
+# sqrt transform
+var_log <- function(x) log(abs(x)+1)*sign(x)
+
+# cubrt transform
+var_log <- function(x) log(abs(x)+1)*sign(x)
+
+# reciprocal transform
+var_log <- function(x) log(abs(x)+1)*sign(x)
+
+
+##########################################
+#        PARTITION DATA                  #
+##########################################
+
+
+#Training
+
+
+#Validation
+
+
+#Testing
+
+
+
+##########################################
+#        SURVIVAL ANALYSIS               #
+##########################################
+
+
+
+
+
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# FINAL RESULTS
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
