@@ -31,147 +31,206 @@ list.of.packages <- c(
   ,"survival"
   ,"OIsurv" # Automatically loads KMsurv - bmt example
   ,"ranger"
+  ,"doBy"
 )
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages)
 lapply(list.of.packages,library, character.only=T)
 
-setwd("C:/Users/lstottsg/Desktop/Laura School/Summer 2017/498")
+#set working directory
+setwd("C:/Users/lstottsg/Desktop/Laura School/Summer 2017/498/Data")
 
 # Load Data
 rm(list=ls())
 
+#import files
+mls <- read.csv('mls_Data_20120315_20170315.csv')
+bus <- read.csv('Census_Businesses.csv')
+demo <- read.csv('Census_Demographics1.csv')
+zmarket <- read.csv('Zillow_Market_Metrics.csv')
+zratio <- read.csv('Zillow_price_to_rent_ratio.csv')
+zsf <- read.csv('zillow_sf_price.csv')
 
-X2015MLS_weka <- read_csv("C:/Users/lstottsg/Desktop/Laura School/Summer 2017/498/2015MLS-weka.csv", 
-                          col_types = cols(`Baths Full` = col_factor(levels = c("0", 
-                                                                                "1", "2", "3", "4", "5", "6", "7", 
-                                                                                "8", "9", "10", "11")), 
-                                           `Baths Half` = col_factor(levels = c("0", "1", "2", "3", "4", "5", "6")), 
-                                           `Beds Total` = col_factor(levels = c("0", "1", "2", "3", "4", "5", "6", "7", 
-                                                                                "8", "9", "10", "11", "12", "13", 
-                                                                                "14", "15", "2215")), CDOM = col_number(), 
-                                           `Close Date` = col_date(format = "%m/%d/%Y"), 
-                                           County = col_factor(levels = c("Livingston", 
-                                                                          "Macomb", "Oakland", "St. Clair", 
-                                                                          "Wayne")), DOM = col_number(), 
-                                           `Expiration Date` = col_date(format = "%m/%d/%Y"), 
-                                           `Last Status` = col_factor(levels = c("ACTV", 
-                                                                                 "CCS", "CWTH", "EXPD", "PEND", 
-                                                                                 "SOLD", "UWTH")), `Listing Contract Date` = col_date(format = "%m/%d/%Y"), 
-                                           `Off Market Date` = col_date(format = "%m/%d/%Y"), 
-                                           Ownership = col_factor(levels = c("Bank - Owned", 
-                                                                             "Corporate/Relocation", "Fannie MAE/Freddie MAC", 
-                                                                             "Government - Owned", "Other/See Remarks", 
-                                                                             "Private - Owned")), `Pending Date` = col_date(format = "%m/%d/%Y"), 
-                                           `Seller Concession YN` = col_factor(levels = c("No", 
-                                                                                          "Yes")), Stat = col_factor(levels = c("CWTH", 
-                                                                                                                                "PEND", "SOLD", "UWTH")), `Water Frontage Feet` = col_number(), 
-                                           `Waterfront YN` = col_factor(levels = c("No", 
-                                                                                   "Yes")), `Year Built` = col_number(), 
-                                           Zip5 = col_number()))
+#combine census files
+census1 <- merge(x = demo, y = bus, by="Area_Name")
+
+#combine mls data with census data
+d1 <- merge(x = mls, y = census1, by.x="Zip", by.y = "Area_Name")
 
 
-mls <- X2015MLS_weka
 ##########################################
 #        Exploratory Data Analyis        #
 ##########################################
-mls.eda <- mls
-
-attach(mls.eda)
 
 #view data dimensions
-dim(mls.eda)
+dim(mls)
+dim(bus)
+dim(demo)
+dim(zmarket)
+dim(zratio)
+dim(zsf)
 
-str(mls.eda)
+#look at summaries
+summary(d1)
+str(d1)
+glimpse(d1)
 
-# quick views of the data
-glimpse(mls.eda)
+#create eda dataset
+d1.eda <- d1
 
-summary(mls.eda)
 
-# Missing data?
-#~~~~~~~~~~~~~~
-#2 Original List Price
-#3 Close Price
-# 14 Est Fin Abv Grd SqFt
-#18 Zip5
-#20 Year Built
-#8 Pending Date
-#8977 CDOM
-#772 Expiration Date
-#121074 Water Frontage Feet
-#15 Area
-#740 DOM
-#8 Pending Date
-#83 Waterfront YN
-#679 Seller Concession YN
-#123 Ownership
-#53 Last Status
-
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# REMOVE INELIGIBLE / NON-PREDICTIVE FEATURES
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-# variables to exclude from training and test data
-exclude_vars <- 
-  c("Ty"
-    ,"MLS"
-    ,"List Office Phone"
-    ,"Selling Office Phone"
-    ,"Off Market Date"
-    ,"Expiration Date"
-    ,"Close Date"
-    ,"Close Price"
-    ,"CDOM"
-    ,"DOM"
-    ,"Last Status"
-  )
-
-mls.eda <- mls.eda[!names(mls.eda)%in%exclude_vars]
+attach(d1.eda)
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# HANDLE NA VALUES
+# IMPUTE NA VALUES
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# find median "original list price", set NA to median
-Original.List.Price.med <- median(`Original List Price`, na.rm = TRUE)
-mls.eda$`Original List Price` <- ifelse(is.na(mls.eda$`Original List Price`), Original.List.Price.med, mls.eda$`Original List Price`)
+#Find mean values to impute for continuous numeric missing values
+#create new variable for possible use later as well
+M_TotalFnishedSF <- mean(d1.eda$TotalFinishedSF, na.rm=TRUE)
+M_AboveGradeFinishedSF <- mean(d1.eda$AboveGradeFinishedSF, na.rm=TRUE)
+M_BelowGradeFinishedSF <- mean(d1.eda$BelowGradeFinishedSF, na.rm=TRUE)
+M_BelowGradeSF <- mean(d1.eda$BelowGradeSF, na.rm=TRUE)
+M_Acreage <- mean(d1.eda$Acreage, na.rm=TRUE)
+M_PricePerSqFt <- mean(d1.eda$PricePerSqFt, na.rm=TRUE)
 
-# find median "est fin abv grd sqft", set NA to median
-Est.Fin.Abv.Grd.SqFt.med <- median(`Est Fin Abv Grd SqFt`, na.rm = TRUE)
-mls.eda$`Est Fin Abv Grd SqFt` <- ifelse(is.na(mls.eda$`Est Fin Abv Grd SqFt`), Est.Fin.Abv.Grd.SqFt.med, mls.eda$`Est Fin Abv Grd SqFt`)
+#Find median values to impute for non-continuous numeric missing values
+#create new variable for possible use later as well
+Md_Beds <- median(d1.eda$Beds, na.rm=TRUE)
+Md_FullBaths <- median(d1.eda$FullBaths, na.rm=TRUE)
+Md_GarageSize.Cars <- median(d1.eda$GarageSize.Cars, na.rm=TRUE)
+Md_LavsHalfBaths <- median(d1.eda$LavsHalfBaths, na.rm=TRUE)
+Md_NoOfUnits <- median(d1.eda$NoOfUnits, na.rm=TRUE)
+Md_PricePerSqFt <- median(d1.eda$PricePerSqFt, na.rm=TRUE)
 
-# populate "zip5" based on zip of same MLS Major Area, Mailing City, City, School District, Street Name as applicable/available
-# **********I did this manually in the excel file based on the dirty data for the 2015 sample**********
+#Impute mean for continuous numeric missing values
+d1.eda$TotalFinishedSF<-ifelse(is.na(d1.eda$TotalFinishedSF)==TRUE,M_TotalFnishedSF,d1.eda$TotalFinishedSF)
+d1.eda$AboveGradeFinishedSF<-ifelse(is.na(d1.eda$AboveGradeFinishedSF)==TRUE,M_AboveGradeFinishedSF,d1.eda$AboveGradeFinishedSF)
+d1.eda$BelowGradeFinishedSF<-ifelse(is.na(d1.eda$BelowGradeFinishedSF)==TRUE,M_BelowGradeFinishedSF,d1.eda$BelowGradeFinishedSF)
+d1.eda$BelowGradeSF<-ifelse(is.na(d1.eda$BelowGradeSF)==TRUE,M_BelowGradeSF,d1.eda$BelowGradeSF)
+d1.eda$Acreage<-ifelse(is.na(d1.eda$Acreage)==TRUE,M_Acreage,d1.eda$Acreage)
+d1.eda$PricePerSqFt<-ifelse(is.na(d1.eda$PricePerSqFt)==TRUE,M_PricePerSqFt,d1.eda$PricePerSqFt)
 
-# find median "year built", set NA to median
-Year.Built.med <- median(`Year Built`, na.rm = TRUE)
-mls.eda$`Year Built` <- ifelse(is.na(mls.eda$`Year Built`), Year.Built.med, mls.eda$`Year Built`)
+#Impute median for non-continuous numeric missing values
+d1.eda$Beds<-ifelse(is.na(d1.eda$Beds)==TRUE,Md_Beds,d1.eda$Beds)
+d1.eda$FullBaths<-ifelse(is.na(d1.eda$FullBaths)==TRUE,Md_FullBaths,d1.eda$FullBaths)
+d1.eda$GarageSize.Cars<-ifelse(is.na(d1.eda$GarageSize.Cars)==TRUE,Md_GarageSize.Cars,d1.eda$GarageSize.Cars)
+d1.eda$LavsHalfBaths<-ifelse(is.na(d1.eda$LavsHalfBaths)==TRUE,Md_LavsHalfBaths,d1.eda$LavsHalfBaths)
+d1.eda$NoOfUnits<-ifelse(is.na(d1.eda$NoOfUnits)==TRUE,Md_NoOfUnits,d1.eda$NoOfUnits)
 
-# find median "area"
-Area.med <- median(Area, na.rm = TRUE)
-mls.eda$Area <- ifelse(is.na(mls.eda$Area), Area.med, mls.eda$Area)
+# populate Waterfront YN with Y if there is a WaterAccessType not in "no" or "none", else N
+d1.eda$WaterAccessYN <- ifelse(is.na(d1.eda$WaterAccessYN)
+                               , ifelse(d1.eda$WaterAccessType=='No'
+                                        , ifelse(d1.eda$WaterAccessType=='None'
+                                                 , 'N'
+                                                 , 'Y')
+                                        , 'Y')
+                               , d1.eda$WaterAccessYN)
 
-# change NA values for water frontage feet to zero
-mls.eda$`Water Frontage Feet` <- ifelse(is.na(mls.eda$`Water Frontage Feet`), 0, mls.eda$`Water Frontage Feet`)
 
-# remove observations with NA Pending Date (cannot use Close Date or Off Market Date to populate because post-pending dates)
-mls.eda <- mls.eda[!is.na(mls.eda$`Pending Date`),]
 
-# populate Waterfront YN with Y if there is a Waterfront Name or Description for property, else N
-mls.eda$`Waterfront YN` <- ifelse(is.na(mls.eda$`Waterfront YN`)
-                                  , ifelse(is.na(mls.eda$`Waterfront Name`)
-                                           , ifelse(is.na(mls.eda$`Waterfront Description`)
-                                                      , 'N'
-                                                      , 'Y')
-                                           , 'Y')
-                                  , mls.eda$`Waterfront YN`)
 
+
+
+#convert factor variables with fewer than 53 categories - can't use these in missForest and some shouldn't be factor anyway
+d1.eda$Zip<-as.numeric(d1.eda$Zip)
+d1.eda$ClosedDate<-as.Date(d1.eda$ClosedDate)
+d1.eda$PendingDate<-as.Date(d1.eda$PendingDate)
+d1.eda$ListDate<-as.Date(d1.eda$ListDate)
+d1.eda$LastStatusChangeDate<-as.Date.factor(d1.eda$LastStatusChangeDate)
+d1.eda$Address<-as.character(d1.eda$Address)
+d1.eda$AddressNumber<-as.numeric(d1.eda$AddressNumber)
+d1.eda$Street<-as.character(d1.eda$Street)
+d1.eda$City<-as.character(d1.eda$City)
+d1.eda$Township<-as.character(d1.eda$Township)
+d1.eda$County<-as.character(d1.eda$County)
+d1.eda$AreaName<-as.character(d1.eda$AreaName)
+d1.eda$WaterAccessType<-as.character(d1.eda$WaterAccessType)
+d1.eda$WaterFrontage<-as.character(d1.eda$WaterFrontage)
+d1.eda$WaterfrontDescription<-as.character(d1.eda$WaterfrontDescription)
+d1.eda$LakeType<-as.character(d1.eda$LakeType)
+d1.eda$BodyofWaterName<-as.character(d1.eda$BodyofWaterName)
+d1.eda$LotSize<-as.character(d1.eda$LotSize)
+d1.eda$Style<-as.character(d1.eda$Style)
+d1.eda$Sewer<-as.character(d1.eda$Sewer)
+d1.eda$WaterPublicWell<-as.character(d1.eda$WaterPublicWell)
+d1.eda$BsmtType<-as.character(d1.eda$BsmtType)
+d1.eda$GarageType<-as.character(d1.eda$GarageType)
+d1.eda$HeatingType<-as.character(d1.eda$HeatingType)
+d1.eda$CoolingCentralAC<-as.character(d1.eda$CoolingCentralAC)
+d1.eda$SchoolDistrict<-as.character(d1.eda$SchoolDistrict)
+d1.eda$ElementarySchool<-as.character(d1.eda$ElementarySchool)
+d1.eda$MiddleSchool<-as.character(d1.eda$MiddleSchool)
+d1.eda$HighSchool<-as.character(d1.eda$HighSchool)
+d1.eda$ListingAgent<-as.character(d1.eda$ListingAgent)
+d1.eda$ListingAgentID<-as.numeric(d1.eda$ListingAgentID)
+d1.eda$ListingBroker<-as.character(d1.eda$ListingBroker)
+d1.eda$ListingBrokerID<-as.numeric(d1.eda$ListingBrokerID)
+d1.eda$SellingAgentName<-as.character(d1.eda$SellingAgentName)
+d1.eda$SellingAgentID<-as.numeric(d1.eda$SellingAgentID)
+d1.eda$SellingBroker<-as.character(d1.eda$SellingBroker)
+d1.eda$SellingBrokerID<-as.numeric(d1.eda$SellingBrokerID)
+d1.eda$Zoning<-as.character(d1.eda$Zoning)
+
+
+#Subset by type - missing 4 are dates
+d1.num <- d1.eda[,sapply(d1.eda,is.numeric)]
+d1.fac <- d1.eda[,sapply(d1.eda,is.factor)]
+d1.char <- d1.eda[,sapply(d1.eda,is.character)]
+
+
+
+#impute other missing values using missForest
+#d1.imp <- missForest(d1.eda)
+
+#d1.imp$OOBerror
+#d1.imp$OOBerror
+
+
+
+# populate "zip" based on zip of same mls Major Area, Mailing City, City, School District, Street Name as applicable/available
 
 # populate Seller Concession YN with ??? (Not sure best way)
 
 # populate Ownership with ??? (Not sure best way)
+
+
+#use package doBy to find summary stats by group
+summaryBy(YearBuilt ~ SchoolDistrict, data = d1.eda, 
+          FUN = list(mean, max, min, median, sd))
+
+#create data frame to reference for plotting
+yearBuilt_by_schoolDistrict1 <- as_data_frame(summaryBy(YearBuilt ~ SchoolDistrict, data = d1.eda, 
+                                                        FUN = list(mean, max, min, median, sd)
+)
+)
+
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# REMOVE INELIGIBLE / NON-PREDICTIVE VARIABLES
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# variables to exclude from training and test data
+exclude_vars <- 
+  c()
+
+d1.eda <- d1.eda[!names(d1.eda)%in%exclude_vars]
+
+
+# variables to include in training and test data
+include_vars <- 
+  c()
+
+d1.eda <- d1.eda[names(d1.eda)%in%include_vars]
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# REMOVE NA OBSERVATIONS FOR IMPORTANT PREDICTORS
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+d1.eda<-d1.eda[(is.na(d1.eda$OriginalListPrice)=TRUE),]
+d1.eda<-d1.eda[(is.na(d1.eda$PendingDate)=TRUE),]
 
 
 
@@ -180,17 +239,27 @@ mls.eda$`Waterfront YN` <- ifelse(is.na(mls.eda$`Waterfront YN`)
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 #create DaysListToPending variable for prediction
-mls.eda$DaysListToPending <- as.numeric(mls.eda$`Pending Date` - mls.eda$`Listing Contract Date`)
+d1.eda$DaysListToPending <- as.numeric(as.Date.factor(d1.eda$PendingDate) - as.Date.factor(d1.eda$ListDate))
 
-#create PendingYN variable for prediction
-#this will include status of pending or sold = 1,  conditionally or unconditionally withdrawn = 0
-mls.eda$PendingIndicator <- mls.eda$Stat                           
-levels(mls.eda$PendingIndicator) <- c(0,1,1,0)              
-mls.eda$PendingIndicator <- as.numeric(as.character(mls.eda$PendingIndicator))  
+#create PendingIndicator variable for prediction
+#this will include status of 
+#1 for sold, pending, leased, off market
+#0 for active, canceled, contingency, deleted, expired, not found in, prospect, withdrawn
+d1.eda$PendingIndicator <- d1.eda$ListingStatus
+
+original.pending.levels <- unique(d1.eda$ListingStatus)
+
+levels(d1.eda$PendingIndicator) <- c(0,0,0,0,0,1,0,0,1,1,0,1,0)              
+d1.eda$PendingIndicator <- as.numeric(as.character(d1.eda$PendingIndicator))  
+
+new.pending.levels <- unique(d1.eda$PendingIndicator)
 
 #we have a data set heavily weighted with pending and sold properties
-mean(mls.eda$PendingIndicator, na.rm = T)
-#0.9999341
+mean(d1.eda$PendingIndicator, na.rm = T)
+#0.9629795
+
+#verify new variables look correct
+head(d1.eda)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # REVIEW SUMMARY DATA AGAIN
@@ -198,20 +267,17 @@ mean(mls.eda$PendingIndicator, na.rm = T)
 
 
 #look at summary again after imputations and removals
-summary(mls.eda)
-glimpse(mls.eda)
+summary(d1.eda)
+glimpse(d1.eda)
 
 #Hmisc package to get further info like high/low, distinct, mean, frequency
 library(Hmisc)
-describe(mls.eda)
+describe(d1.eda)
 
 #load pych package to see skew, kurtosis, se for numeric values
 library(psych)
-describe(mls.eda)
+describe(d1.eda$DaysListToPending)
 
-
-# remove further observations with missing values???
-#mls.eda <- na.omit(mls.eda)
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -219,14 +285,14 @@ describe(mls.eda)
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 #subset by type
-mls.cat <- mls.eda[,c('County', 'MLS Area Major', 'Mailing City', 'City', 'Zip5',
+mls.cat <- d1.eda[,c('County', 'mls Area Major', 'Mailing City', 'City', 'Zip5',
                            'School District', 'Waterfront Name', 'Waterfront Description', 'Ownership',
                            'Foundation', 'Address', 'List Office Name', 'Selling Office Name',
                            'List Agent Full Name', 'Selling Agent Full Name')]
 
-mls.bin <- mls.eda[,c('Seller Concession YN', 'Waterfront YN')]
+mls.bin <- d1.eda[,c('Seller Concession YN', 'Waterfront YN')]
 
-mls.num <- mls.eda[,c('Original List Price', 'List Price', 'Est Fin Abv Grd SqFt',
+mls.num <- d1.eda[,c('Original List Price', 'List Price', 'Est Fin Abv Grd SqFt',
                           'Est Tot Fin SqFt', 'Area', 'Water Frontage Feet', 'Year Built')]
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -252,6 +318,64 @@ scatterplotMatrix(mls.num, smoother=FALSE)
 # HANDLE OUTLIERS
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+#look at percentages for OriginalListPrice to decide how best to trim outliers
+min(d1.eda$`Year Built`)
+max(d1.eda$`Year Built`)
+quantile(d1.eda$`Year Built`, c(.01, .05, .1, .15, .85, .95, .98, .99)) 
+
+d1.eda<-d1.eda[!(d1.eda$OriginalListPrice>=3000000),]
+
+#look at percentages for ListPrice to decide how best to trim outliers
+min(d1.eda$`Year Built`)
+max(d1.eda$`Year Built`)
+quantile(d1.eda$`Year Built`, c(.01, .05, .1, .15, .85, .95, .98, .99)) 
+
+d1.eda<-d1.eda[!(d1.eda$ListPrice>=3000000),]
+
+
+#look at percentages for DaysonMkt to decide how best to trim outliers
+min(d1.eda$`Year Built`)
+max(d1.eda$`Year Built`)
+quantile(d1.eda$`Year Built`, c(.01, .05, .1, .15, .85, .95, .98, .99)) 
+
+d1.eda<-d1.eda[!(d1.eda$DaysonMkt<0),]
+d1.eda<-d1.eda[!(d1.eda$DaysonMkt>=365*2),]
+
+
+
+
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# DUMMY CODING / NEW VARIABLES
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+d1.eda$WaterAccess_ID <- ifelse(d1.eda$WaterAccessYN=="Y",1,ifelse(d1.eda$WaterAccessYN=="Yes",1,ifelse(d1.eda$WaterAccessYN=="Deeded Access",1,0)))
+d1.eda$On_Lake_Michigan <- ifelse(d1.eda$BodyofWaterName=="Lake Michigan",1,0)
+d1.eda$On_Pond <- ifelse(d1.eda$BodyofWaterName=="Pond",1,0)
+d1.eda$Condo_ID <- ifelse(d1.eda$PropertyType=="Condo",1,0)
+d1.eda$Multi_Fam_ID <- ifelse(d1.eda$PropertyType=="Multi Family",1,0)
+d1.eda$Well_Water_ID <- ifelse(d1.eda$WaterPublicWell=="Well",1,0)
+d1.eda$Walk_Out_Basement_ID <-ifelse(d1.eda$BsmtType=="Walk Out",1,0)
+d1.eda$Finished_Basement_ID <- ifelse(d1.eda$BsmtType=="Finished",1,ifelse(d1.eda$BsmtType=="Partially Finished",1,0))
+d1.eda$Garage_ID <-ifelse(d1.eda$GarageYN=="N",0,1)
+d1.eda$Concession_ID <-ifelse(d1.eda$ConcessionYN=="Yes",1,ifelse(d1.eda$ConcessionYN=="Financing",1,ifelse(d1.eda$ConcessionYN=="Other",1,0)))
+d1.eda$Foreclosure_ID <- ifelse(d1.eda$ForeclosureYN=="f",1,0)
+d1.eda$Rental_ID <-ifelse(d1.eda$LeaseRentYN=="Y",1,0)
+d1.eda$Sale_ID <-ifelse(d1.eda$SaleLease=="Sale",1,0)
+d1.eda$GP_Schools <- ifelse(d1.eda$SchoolDistrict=="Grosse Pointe",1,0)
+d1.eda$Other_Good_Schools <-ifelse(d1.eda$SchoolDistrict=="Bloomfield Hills",1,ifelse(d1.eda$SchoolDistrict=="West Bloomfield",1,ifelse(d1.eda$SchoolDistrict=="Birmingham",1,ifelse(d1.eda$SchoolDistrict=="Rochester",1,0))))
+d1.eda$Beds <- ifelse(d1.eda$Beds>10, 10,d1.eda$Beds)
+d1.eda$YearBuilt<-ifelse(d1.eda$YearBuilt>=2018,1995,d1.eda$YearBuilt)
+d1.eda$TotalFinishedSF<-ifelse(d1.eda$TotalFinishedSF>10000,10000,d1.eda$TotalFinishedSF)
+d1.eda$AboveGradeFinishedSF<-ifelse(d1.eda$AboveGradeFinishedSF>10000,10000,d1.eda$AboveGradeFinishedSF)
+d1.eda$BelowGradeFinishedSF<-ifelse(d1.eda$BelowGradeFinishedSF>10000,10000,d1.eda$BelowGradeFinishedSF)
+d1.eda$BelowGradeSF<-ifelse(d1.eda$BelowGradeSF>10000,10000,d1.eda$BelowGradeSF)
+d1.eda$Acreage<-ifelse(d1.eda$Acreage>1000,1000,d1.eda$Acreage)
+d1.eda$FullBaths<-ifelse(d1.eda$FullBaths>10,10,d1.eda$FullBaths)
+d1.eda$GarageSize.Cars<-ifelse(d1.eda$GarageSize.Cars>10,10,d1.eda$GarageSize.Cars)
+d1.eda$LavsHalfBaths<-ifelse(d1.eda$LavsHalfBaths>10,10,d1.eda$LavsHalfBaths)
+d1.eda$PricePerSqFt<-ifelse(d1.eda$PricePerSqFt>1000,1000,d1.eda$PricePerSqFt)
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -282,11 +406,12 @@ var_log <- function(x) log(abs(x)+1)*sign(x)
 var_log <- function(x) log(abs(x)+1)*sign(x)
 
 
+
 ##########################################
 #        PARTITION DATA                  #
 ##########################################
 
-mls.model <- mls.eda
+mls.model <- d1.eda
 
 #Training
 
