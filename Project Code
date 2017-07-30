@@ -72,8 +72,18 @@ dim(zsf)
 
 #look at summaries
 summary(d1)
+
+#look at NA values
+sapply(d1, function(x) sum(is.na(x)))
+
 str(d1)
 glimpse(d1)
+
+#gather variable names in table format
+d1.names <- as_data_frame(names(d1))
+
+#write this out for a summary table
+#write.table(d1.names, file = "d1_names.txt", sep = ",", quote = FALSE, row.names = F)
 
 #create eda dataset
 d1.eda <- d1
@@ -102,7 +112,6 @@ Md_FullBaths <- median(d1.eda$FullBaths, na.rm=TRUE)
 Md_GarageSize.Cars <- median(d1.eda$GarageSize.Cars, na.rm=TRUE)
 Md_LavsHalfBaths <- median(d1.eda$LavsHalfBaths, na.rm=TRUE)
 Md_NoOfUnits <- median(d1.eda$NoOfUnits, na.rm=TRUE)
-Md_PricePerSqFt <- median(d1.eda$PricePerSqFt, na.rm=TRUE)
 
 #Impute mean for continuous numeric missing values
 d1.eda$TotalFinishedSF<-ifelse(is.na(d1.eda$TotalFinishedSF)==TRUE,M_TotalFnishedSF,d1.eda$TotalFinishedSF)
@@ -128,12 +137,7 @@ d1.eda$WaterAccessYN <- ifelse(is.na(d1.eda$WaterAccessYN)
                                         , 'Y')
                                , d1.eda$WaterAccessYN)
 
-
-
-
-
-
-#convert factor variables with fewer than 53 categories - can't use these in missForest and some shouldn't be factor anyway
+#convert factor variables with fewer than 53 categories - can't use these in missForest and most shouldn't be factor anyway
 d1.eda$Zip<-as.numeric(d1.eda$Zip)
 d1.eda$ClosedDate<-as.Date(d1.eda$ClosedDate)
 d1.eda$PendingDate<-as.Date(d1.eda$PendingDate)
@@ -182,48 +186,16 @@ d1.char <- d1.eda[,sapply(d1.eda,is.character)]
 
 
 #impute other missing values using missForest
-#d1.imp <- missForest(d1.eda)
+#d1.num.imp <- missForest(d1.num)
 
 #d1.imp$OOBerror
 #d1.imp$OOBerror
 
 
-
-# populate "zip" based on zip of same mls Major Area, Mailing City, City, School District, Street Name as applicable/available
-
-# populate Seller Concession YN with ??? (Not sure best way)
-
-# populate Ownership with ??? (Not sure best way)
+# populate Seller Concession Values with ??? (Not sure best way)
 
 
-#use package doBy to find summary stats by group
-summaryBy(YearBuilt ~ SchoolDistrict, data = d1.eda, 
-          FUN = list(mean, max, min, median, sd))
-
-#create data frame to reference for plotting
-yearBuilt_by_schoolDistrict1 <- as_data_frame(summaryBy(YearBuilt ~ SchoolDistrict, data = d1.eda, 
-                                                        FUN = list(mean, max, min, median, sd)
-)
-)
-
-
-
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# REMOVE INELIGIBLE / NON-PREDICTIVE VARIABLES
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-# variables to exclude from training and test data
-exclude_vars <- 
-  c()
-
-d1.eda <- d1.eda[!names(d1.eda)%in%exclude_vars]
-
-
-# variables to include in training and test data
-include_vars <- 
-  c()
-
-d1.eda <- d1.eda[names(d1.eda)%in%include_vars]
+summary(d1.eda)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # REMOVE NA OBSERVATIONS FOR IMPORTANT PREDICTORS
@@ -231,7 +203,6 @@ d1.eda <- d1.eda[names(d1.eda)%in%include_vars]
 
 d1.eda<-d1.eda[(is.na(d1.eda$OriginalListPrice)=TRUE),]
 d1.eda<-d1.eda[(is.na(d1.eda$PendingDate)=TRUE),]
-
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -262,6 +233,23 @@ mean(d1.eda$PendingIndicator, na.rm = T)
 head(d1.eda)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# REMOVE INELIGIBLE / NON-PREDICTIVE VARIABLES
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# variables to exclude from training and test data
+exclude_vars <- 
+  c("X_BATCH_ID_"
+    ,"MLS_Number"
+    ,"ClosedDate"
+    ,"PendingDate"
+    ,"ClosedSoldPrice"
+    ,"DaysOnMarket"
+    ,"WebPropertyType.1")
+
+d1.eda <- d1.eda[!names(d1.eda)%in%exclude_vars]
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # REVIEW SUMMARY DATA AGAIN
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -284,23 +272,22 @@ describe(d1.eda$DaysListToPending)
 # SUBSET
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-#subset by type
-mls.cat <- d1.eda[,c('County', 'mls Area Major', 'Mailing City', 'City', 'Zip5',
-                           'School District', 'Waterfront Name', 'Waterfront Description', 'Ownership',
-                           'Foundation', 'Address', 'List Office Name', 'Selling Office Name',
-                           'List Agent Full Name', 'Selling Agent Full Name')]
+#use package doBy to find summary stats by group
+summaryBy(YearBuilt ~ SchoolDistrict, data = d1.eda, 
+          FUN = list(mean, max, min, median, sd))
 
-mls.bin <- d1.eda[,c('Seller Concession YN', 'Waterfront YN')]
-
-mls.num <- d1.eda[,c('Original List Price', 'List Price', 'Est Fin Abv Grd SqFt',
-                          'Est Tot Fin SqFt', 'Area', 'Water Frontage Feet', 'Year Built')]
+#create data frame to reference for plotting
+yearBuilt_by_schoolDistrict1 <- as_data_frame(summaryBy(YearBuilt ~ SchoolDistrict, data = d1.eda, 
+                                                        FUN = list(mean, max, min, median, sd)
+)
+)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # CORRELATIONS
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 #Pearson correlations for numeric values
-rcorr(as.matrix(mls.num), type="pearson")
+rcorr(as.matrix(d1.num), type="pearson")
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # PLOT
