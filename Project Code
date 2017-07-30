@@ -364,6 +364,8 @@ d1.eda$GarageSize.Cars<-ifelse(d1.eda$GarageSize.Cars>10,10,d1.eda$GarageSize.Ca
 d1.eda$LavsHalfBaths<-ifelse(d1.eda$LavsHalfBaths>10,10,d1.eda$LavsHalfBaths)
 d1.eda$PricePerSqFt<-ifelse(d1.eda$PricePerSqFt>1000,1000,d1.eda$PricePerSqFt)
 
+#Remove the rest of the NA observations
+d1 <- na.omit(d1)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # BINNING
@@ -398,15 +400,145 @@ var_log <- function(x) log(abs(x)+1)*sign(x)
 #        PARTITION DATA                  #
 ##########################################
 
-mls.model <- d1.eda
+n = nrow(d1.eda)
+trainIndex = sample(1:n, size=round(0.6*n),replace=FALSE)
+train=d1.eda[trainIndex,]
+test=d1.eda[-trainIndex,]
 
-#Training
+require(rpart)
+require(rpart.plot)
+require(tree)
+require(rattle)
+require(caTools)
+require(ROCR)
+require(ResourceSelection)
+
+library(corrgram)
+library(MASS)
+library(randomForest)
+library(inTrees)
+library(pROC)
+library(caret)
+library(dplyr)
 
 
-#Validation
+summary(d1.eda)
 
 
-#Testing
+##########################################
+# REGRESSION & RANDOM FOREST ANALYSIS    #
+##########################################
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Linear Regression
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+lm1 <-lm(DaysonMkt ~ TotalFinishedSF + FullBaths + OriginalListPrice + YearBuilt +WaterAccess_ID + PricePerSqFt +
+           On_Lake_Michigan + On_Pond + Condo_ID + Multi_Fam_ID + Walk_Out_Basement_ID + Finished_Basement_ID +
+           Garage_ID + Concession_ID + Foreclosure_ID + Rental_ID + GP_Schools + Other_Good_Schools , data=train) 
+
+summary(lm1)
+
+pred.valid.lm1 <- predict(lm1, newdata = test) # validation predictions
+
+
+
+
+
+lm2 <-lm(DaysonMkt ~ TotalFinishedSF + FullBaths + OriginalListPrice + YearBuilt +WaterAccess_ID + PricePerSqFt +
+           On_Lake_Michigan + On_Pond + Condo_ID + Multi_Fam_ID + Walk_Out_Basement_ID + Finished_Basement_ID +
+           Garage_ID + Concession_ID + Foreclosure_ID + Rental_ID + GP_Schools + Other_Good_Schools +
+           pop_density + renter + hh_ave_size + vacant + pct_pop_growth, data=train) 
+
+summary(lm2)
+
+pred.valid.lm2 <- predict(lm2, newdata = test) # validation predictions
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Random Forest 1
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+rf1 <-randomForest(DaysonMkt ~ TotalFinishedSF + FullBaths + OriginalListPrice + YearBuilt +WaterAccess_ID + PricePerSqFt +
+                     On_Lake_Michigan + On_Pond + Condo_ID + Multi_Fam_ID + Walk_Out_Basement_ID + Finished_Basement_ID +
+                     Garage_ID + Concession_ID + Foreclosure_ID + Rental_ID + GP_Schools + Other_Good_Schools , data=train, importance=TRUE, ntree=5) 
+
+summary(rf1)
+pringt(rf1)
+plot(rf1)
+importance(rf1)
+varImpPlot(rf1)
+par(mfrow=c(1,1))
+#get the prediction probabilities##
+rf1p  <- predict(rf1, newdata=test1,type="response")
+head(rf1p)
+hist(rf1p)
+sort(rf1p)
+rf1.pred = prediction(rf1p, test$DaysonMkt)
+rf1.perf = performance(rf1.pred,"tpr","fpr")
+plot(rf1.perf,main="ROC Curve for Random Forest",col=2,lwd=2)
+abline(a=0,b=1,lwd=2,lty=2,col="gray")
+
+auc(test$DaysonMkt,rf1p)
+
+#Make a confusion matrix and compute accuracy
+##confusion.matrix <- table(rf1p, subdat3$RESPONSE16)
+##confusion.matrix
+
+rf1pround <- round(rf1p,0)
+xtabs(~DaysonMkt + rf1pround, data = test)
+
+rf1pdf <- as.data.frame(rf1p)
+data_alldf <- cbind(d1,rf1pdf)
+str(data_alldf)
+head(data_alldf)
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Random Forest 2
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+rf1 <-randomForest(DaysonMkt ~ TotalFinishedSF + FullBaths + OriginalListPrice + YearBuilt +WaterAccess_ID + PricePerSqFt +
+                     On_Lake_Michigan + On_Pond + Condo_ID + Multi_Fam_ID + Walk_Out_Basement_ID + Finished_Basement_ID +
+                     Garage_ID + Concession_ID + Foreclosure_ID + Rental_ID + GP_Schools + Other_Good_Schools +
+                     pop_density + renter + hh_ave_size + vacant + pct_pop_growth, data=train, importance=TRUE, ntree=5) 
+
+summary(rf1)
+pringt(rf1)
+plot(rf1)
+importance(rf1)
+varImpPlot(rf1)
+
+
+
+
+
+
+par(mfrow=c(1,1))
+#get the prediction probabilities##
+rf1p  <- predict(rf1, newdata=test1,type="response")
+head(rf1p)
+hist(rf1p)
+sort(rf1p)
+rf1.pred = prediction(rf1p, test$DaysonMkt)
+rf1.perf = performance(rf1.pred,"tpr","fpr")
+plot(rf1.perf,main="ROC Curve for Random Forest",col=2,lwd=2)
+abline(a=0,b=1,lwd=2,lty=2,col="gray")
+
+auc(test$DaysonMkt,rf1p)
+
+#Make a confusion matrix and compute accuracy
+##confusion.matrix <- table(rf1p, subdat3$RESPONSE16)
+##confusion.matrix
+
+rf1pround <- round(rf1p,0)
+xtabs(~DaysonMkt + rf1pround, data = test)
+
+rf1pdf <- as.data.frame(rf1p)
+data_alldf <- cbind(d1,rf1pdf)
+str(data_alldf)
+head(data_alldf)
 
 
 
