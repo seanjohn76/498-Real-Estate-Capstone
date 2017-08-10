@@ -1,0 +1,155 @@
+#set working directory
+setwd("C:/Users/dsrjr/Documents/Capstone/Data_Files")
+
+#import files
+mls <- read.csv('mls_Data_20120315_20170315.csv')
+bus <- read.csv('Census_Businesses.csv')
+demo <- read.csv('Census_Demographics1.csv')
+zmarket <- read.csv('Zillow_Market_Metrics.csv')
+zratio <- read.csv('Zillow_price_to_rent_ratio.csv')
+zsf <- read.csv('zillow_sf_price.csv')
+
+#Clear inappropriate census data
+demo2<-demo[,c(1,2,24,26,28,32,38,39)]
+#combine census files
+census1 <- merge(x = demo2, y = bus, by="Area_Name")
+zmarket2 <- zmarket[,c(2,8)]
+census2 <- merge(x = census1, y = zmarket2, by.x="Area_Name", by.y="RegionName")
+
+
+#Sold Listings Only
+mls2<-mls[(mls$ListingStatus=="Sold"),]
+#Pending Listings Only
+mls_pending<-mls[(mls$ListingStatus=="Pending"),]
+#Only 1769 pendings, remove: incomplete consessions records.
+#Remove records with missing pending date
+mls2<-mls2[!(mls2$PendingDate==""),]
+
+#Create new house metrics 1
+mls2$WaterAccess_ID <- ifelse(mls2$WaterAccessYN=="Y",1,ifelse(mls2$WaterAccessYN=="Yes",1,ifelse(mls2$WaterAccessYN=="Deeded Access",1,0)))
+mls2$On_Lake_Michigan <- ifelse(mls2$BodyofWaterName=="Lake Michigan",1,0)
+mls2$On_Pond <- ifelse(mls2$BodyofWaterName=="Pond",1,0)
+mls2$Condo_ID <- ifelse(mls2$PropertyType=="Condo",1,0)
+mls2$Multi_Fam_ID <- ifelse(mls2$PropertyType=="Multi Family",1,0)
+mls2$Well_Water_ID <- ifelse(mls2$WaterPublicWell=="Well",1,0)
+mls2$Walk_Out_Basement_ID <-ifelse(mls2$BsmtType=="Walk Out",1,0)
+mls2$Finished_Basement_ID <- ifelse(mls2$BsmtType=="Finished",1,ifelse(mls2$BsmtType=="Partially Finished",1,0))
+mls2$Garage_ID <-ifelse(mls2$GarageYN=="N",0,1)
+mls2$Concession_ID <-ifelse(mls2$ConcessionYN=="Yes",1,ifelse(mls2$ConcessionYN=="Financing",1,ifelse(mls2$ConcessionYN=="Other",1,0)))
+mls2$Foreclosure_ID <- ifelse(mls2$ForeclosureYN=="f",1,0)
+mls2$Rental_ID <-ifelse(mls2$LeaseRentYN=="Y",1,0)
+mls2$Sale_ID <-ifelse(mls2$SaleLease=="Sale",1,0)
+mls2$HighAcreage_ID <-ifelse(mls2$Acreage>=4,1,0)
+mls3$HighAcreage_ID <-ifelse(is.na(mls3$HighAcreage_ID)==TRUE,0,mls3$HighAcreage_ID)
+mls2$GP_Schools <- ifelse(mls2$SchoolDistrict=="Grosse Pointe",1,0)
+mls2$Other_Good_Schools <-ifelse(mls2$SchoolDistrict=="Bloomfield Hills",1,ifelse(mls2$SchoolDistrict=="West Bloomfield",1,ifelse(mls2$SchoolDistrict=="Birmingham",1,ifelse(mls2$SchoolDistrict=="Rochester",1,0))))
+mls2$Beds <- ifelse(mls2$Beds>10, NA,mls2$Beds)
+mls2$YearBuilt<-ifelse(mls2$YearBuilt>=2018,NA,mls2$YearBuilt)
+mls2$YearBuilt<-ifelse(mls2$YearBuilt<=1800,NA,mls2$YearBuilt)
+mls2$TotalFinishedSF<-ifelse(mls2$TotalFinishedSF>10000,NA,mls2$TotalFinishedSF)
+mls2$AboveGradeFinishedSF<-ifelse(mls2$AboveGradeFinishedSF>9999,NA,mls2$AboveGradeFinishedSF)
+mls2$BelowGradeFinishedSF<-ifelse(mls2$BelowGradeFinishedSF>9999,NA,mls2$BelowGradeFinishedSF)
+mls2$BelowGradeSF<-ifelse(mls2$BelowGradeSF>10000,NA,mls2$BelowGradeSF)
+mls2$Acreage<-ifelse(mls2$Acreage>=4,NA,mls2$Acreage)
+mls2$FullBaths<-ifelse(mls2$FullBaths>10,NA,mls2$FullBaths)
+mls2$GarageSize.Cars<-ifelse(mls2$GarageSize.Cars>5,NA,mls2$GarageSize.Cars)
+mls2$LavsHalfBaths<-ifelse(mls2$LavsHalfBaths>10,NA,mls2$LavsHalfBaths)
+mls2$PricePerSqFt<-ifelse(mls2$PricePerSqFt>1000,NA,mls2$PricePerSqFt)
+
+#Select Subset of mls listing data fields
+mls3<-mls2[,c(4:6,15,58:59,63:67,69:71,73:89)]
+summary(mls3)
+
+
+#Replace na's with mean values
+M_TotalFnishedSF <- mean(mls3$TotalFinishedSF, na.rm=TRUE)
+M_Acreage <- mean(mls3$Acreage, na.rm=TRUE)
+M_Beds <- mean(mls3$Beds, na.rm=TRUE)
+M_FullBaths <- mean(mls3$FullBaths, na.rm=TRUE)
+M_GarageSize.Cars <- mean(mls3$GarageSize.Cars, na.rm=TRUE)
+M_LavsHalfBaths <- mean(mls3$LavsHalfBaths, na.rm=TRUE)
+M_PricePerSqFt <- mean(mls3$PricePerSqFt, na.rm=TRUE)
+M_YearBuilt <- mean(mls3$YearBuilt, na.rm=TRUE)
+mls3$TotalFinishedSF<-ifelse(is.na(mls3$TotalFinishedSF)==TRUE,M_TotalFnishedSF,mls3$TotalFinishedSF)
+mls3$Acreage<-ifelse(is.na(mls3$Acreage)==TRUE,M_Acreage,mls3$Acreage)
+mls3$Beds<-ifelse(is.na(mls3$Beds)==TRUE,M_Beds,mls3$Beds)
+mls3$FullBaths<-ifelse(is.na(mls3$FullBaths)==TRUE,M_FullBaths,mls3$FullBaths)
+mls3$GarageSize.Cars<-ifelse(is.na(mls3$GarageSize.Cars)==TRUE,M_GarageSize.Cars,mls3$GarageSize.Cars)
+mls3$LavsHalfBaths<-ifelse(is.na(mls3$LavsHalfBaths)==TRUE,M_LavsHalfBaths,mls3$LavsHalfBaths)
+mls3$PricePerSqFt<-ifelse(is.na(mls3$PricePerSqFt)==TRUE,M_PricePerSqFt,mls3$PricePerSqFt)
+mls3$YearBuilt<-ifelse(is.na(mls3$YearBuilt)==TRUE,M_YearBuilt,mls3$YearBuilt)
+summary(mls3)
+
+
+
+#Remove records with missing original list price
+mls3<-mls3[(is.na(mls3$OriginalListPrice)==FALSE),]
+
+#combine mls data with census data
+d1 <- merge(x = mls3, y = census2, by.x="Zip", by.y = "Area_Name", all.x=TRUE)
+summary(d1)
+
+#Replace missing census data points
+d1$pop_density<-ifelse(is.na(d1$pop_density)==TRUE,mean(d1$pop_density, na.rm=TRUE),d1$pop_density)
+d1$hh_density<-ifelse(is.na(d1$hh_density)==TRUE,mean(d1$hh_density, na.rm=TRUE),d1$hh_density)
+d1$vacant<-ifelse(is.na(d1$vacant)==TRUE,mean(d1$vacant, na.rm=TRUE),d1$vacant)
+d1$value_hunit_oo_medn<-ifelse(is.na(d1$value_hunit_oo_medn)==TRUE,mean(d1$value_hunit_oo_medn, na.rm=TRUE),d1$value_hunit_oo_medn)
+d1$hunit_age<-ifelse(is.na(d1$hunit_age)==TRUE,mean(d1$hunit_age, na.rm=TRUE),d1$hunit_age)
+d1$pct_pop_growth<-ifelse(is.na(d1$pct_pop_growth)==TRUE,mean(d1$pct_pop_growth, na.rm=TRUE),d1$pct_pop_growth)
+d1$pct_hh_growth<-ifelse(is.na(d1$pct_hh_growth)==TRUE,mean(d1$pct_hh_growth, na.rm=TRUE),d1$pct_hh_growth)
+d1$DW_IS_LARGE_EMPLOYER<-ifelse(is.na(d1$DW_IS_LARGE_EMPLOYER)==TRUE,mean(d1$DW_IS_LARGE_EMPLOYER, na.rm=TRUE),d1$DW_IS_LARGE_EMPLOYER)
+d1$DW_IS_DEPT_STORE<-ifelse(is.na(d1$DW_IS_DEPT_STORE)==TRUE,mean(d1$DW_IS_DEPT_STORE, na.rm=TRUE),d1$DW_IS_DEPT_STORE)
+d1$DW_IS_GROCERY<-ifelse(is.na(d1$DW_IS_GROCERY)==TRUE,mean(d1$DW_IS_GROCERY, na.rm=TRUE),d1$DW_IS_GROCERY)
+d1$DW_IS_GAS_FOOD<-ifelse(is.na(d1$DW_IS_GAS_FOOD)==TRUE,mean(d1$DW_IS_GAS_FOOD, na.rm=TRUE),d1$DW_IS_GAS_FOOD)
+d1$DW_IS_CONV_STORE<-ifelse(is.na(d1$DW_IS_CONV_STORE)==TRUE,mean(d1$DW_IS_CONV_STORE, na.rm=TRUE),d1$DW_IS_CONV_STORE)
+d1$DW_IS_GAS<-ifelse(is.na(d1$DW_IS_GAS)==TRUE,mean(d1$DW_IS_GAS, na.rm=TRUE),d1$DW_IS_GAS)
+d1$DW_IS_QSR_PIZZA_CHAIN<-ifelse(is.na(d1$DW_IS_QSR_PIZZA_CHAIN)==TRUE,mean(d1$DW_IS_QSR_PIZZA_CHAIN, na.rm=TRUE),d1$DW_IS_QSR_PIZZA_CHAIN)
+d1$DW_IS_QSR_PIZZA_NON_CHAIN<-ifelse(is.na(d1$DW_IS_QSR_PIZZA_NON_CHAIN)==TRUE,mean(d1$DW_IS_QSR_PIZZA_NON_CHAIN, na.rm=TRUE),d1$DW_IS_QSR_PIZZA_NON_CHAIN)
+d1$DW_IS_QSR_NONPIZZA<-ifelse(is.na(d1$DW_IS_QSR_NONPIZZA)==TRUE,mean(d1$DW_IS_QSR_NONPIZZA, na.rm=TRUE),d1$DW_IS_QSR_NONPIZZA)
+d1$DW_IS_QSR_BIG10<-ifelse(is.na(d1$DW_IS_QSR_BIG10)==TRUE,mean(d1$DW_IS_QSR_BIG10, na.rm=TRUE),d1$DW_IS_QSR_BIG10)
+d1$DW_IS_OTHER_PIZZA<-ifelse(is.na(d1$DW_IS_OTHER_PIZZA)==TRUE,mean(d1$DW_IS_OTHER_PIZZA, na.rm=TRUE),d1$DW_IS_OTHER_PIZZA)
+d1$DW_IS_OTHER_EATING<-ifelse(is.na(d1$DW_IS_OTHER_EATING)==TRUE,mean(d1$DW_IS_OTHER_EATING, na.rm=TRUE),d1$DW_IS_OTHER_EATING)
+d1$DW_IS_HOTEL<-ifelse(is.na(d1$DW_IS_HOTEL)==TRUE,mean(d1$DW_IS_HOTEL, na.rm=TRUE),d1$DW_IS_HOTEL)
+d1$DW_IS_VIDEO<-ifelse(is.na(d1$DW_IS_VIDEO)==TRUE,mean(d1$DW_IS_VIDEO, na.rm=TRUE),d1$DW_IS_VIDEO)
+d1$DW_IS_HOSPITAL<-ifelse(is.na(d1$DW_IS_HOSPITAL)==TRUE,mean(d1$DW_IS_HOSPITAL, na.rm=TRUE),d1$DW_IS_HOSPITAL)
+d1$DW_IS_SCHOOL<-ifelse(is.na(d1$DW_IS_SCHOOL)==TRUE,mean(d1$DW_IS_SCHOOL, na.rm=TRUE),d1$DW_IS_SCHOOL)
+d1$DW_IS_COLLEGE<-ifelse(is.na(d1$DW_IS_COLLEGE)==TRUE,mean(d1$DW_IS_COLLEGE, na.rm=TRUE),d1$DW_IS_COLLEGE)
+d1$DW_IS_MILITARY<-ifelse(is.na(d1$DW_IS_MILITARY)==TRUE,mean(d1$DW_IS_MILITARY, na.rm=TRUE),d1$DW_IS_MILITARY)
+d1$DW_IS_EATING_CHAIN_50PL<-ifelse(is.na(d1$DW_IS_EATING_CHAIN_50PL)==TRUE,mean(d1$DW_IS_EATING_CHAIN_50PL, na.rm=TRUE),d1$DW_IS_EATING_CHAIN_50PL)
+d1$DW_IS_BAGELS_DONUTS_PL<-ifelse(is.na(d1$DW_IS_BAGELS_DONUTS_PL)==TRUE,mean(d1$DW_IS_BAGELS_DONUTS_PL, na.rm=TRUE),d1$DW_IS_BAGELS_DONUTS_PL)
+d1$DW_IS_ICECREAM<-ifelse(is.na(d1$DW_IS_ICECREAM)==TRUE,mean(d1$DW_IS_ICECREAM, na.rm=TRUE),d1$DW_IS_ICECREAM)
+d1$DW_IS_RESTAURANT<-ifelse(is.na(d1$DW_IS_RESTAURANT)==TRUE,mean(d1$DW_IS_RESTAURANT, na.rm=TRUE),d1$DW_IS_RESTAURANT)
+d1$DW_IS_PIZZA<-ifelse(is.na(d1$DW_IS_PIZZA)==TRUE,mean(d1$DW_IS_PIZZA, na.rm=TRUE),d1$DW_IS_PIZZA)
+d1$DW_IS_COFFEE<-ifelse(is.na(d1$DW_IS_COFFEE)==TRUE,mean(d1$DW_IS_COFFEE, na.rm=TRUE),d1$DW_IS_COFFEE)
+d1$DW_IS_BAR_CLUB<-ifelse(is.na(d1$DW_IS_BAR_CLUB)==TRUE,mean(d1$DW_IS_BAR_CLUB, na.rm=TRUE),d1$DW_IS_BAR_CLUB)
+d1$DW_IS_RETAIL<-ifelse(is.na(d1$DW_IS_RETAIL)==TRUE,mean(d1$DW_IS_RETAIL, na.rm=TRUE),d1$DW_IS_RETAIL)
+d1$DW_IS_ACTIVE<-ifelse(is.na(d1$DW_IS_ACTIVE)==TRUE,mean(d1$DW_IS_ACTIVE, na.rm=TRUE),d1$DW_IS_ACTIVE)
+d1$EMPLOYEE_TOTAL<-ifelse(is.na(d1$EMPLOYEE_TOTAL)==TRUE,mean(d1$EMPLOYEE_TOTAL, na.rm=TRUE),d1$EMPLOYEE_TOTAL)
+d1$EMPLOYEE_HERE<-ifelse(is.na(d1$EMPLOYEE_HERE)==TRUE,mean(d1$EMPLOYEE_HERE, na.rm=TRUE),d1$EMPLOYEE_HERE)
+d1$MarketHealthIndex<-ifelse(is.na(d1$MarketHealthIndex)==TRUE,mean(d1$MarketHealthIndex, na.rm=TRUE),d1$MarketHealthIndex)
+
+summary(d1)
+
+#add predictor column
+d1$DaysListToPending <- as.numeric(as.Date.factor(d1$PendingDate) - as.Date.factor(d1$ListDate))
+
+d1<-d1[(d1$DaysListToPending>=0),]
+d1<-d1[(d1$DaysListToPending<=(365*2)),]
+
+d1.mod<-d1[,c(5:10,12:69)]
+set.seed(1)
+n = nrow(d1.mod)
+trainIndex = sample(1:n, size=round(0.7*n),replace=FALSE)
+train=d1.mod[trainIndex,]
+test=d1.mod[-trainIndex,]
+
+write.csv(d1, file="MLS_Summary.csv")
+write.csv(d1.mod, file="MLS_Modeling.csv")
+write.csv(train, file="MLS_Train.csv")
+write.csv(test, file="MLS_Test.csv")
+
+
+
+
+
+
