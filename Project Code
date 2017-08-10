@@ -403,7 +403,7 @@ var_log <- function(x) log(abs(x)+1)*sign(x)
 ##########################################
 #        PARTITION DATA                  #
 ##########################################
-
+set.seed(1)
 n = nrow(d1.eda)
 trainIndex = sample(1:n, size=round(0.6*n),replace=FALSE)
 train=d1.eda[trainIndex,]
