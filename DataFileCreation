@@ -139,7 +139,7 @@ d1$DaysListToPending <- as.numeric(as.Date.factor(d1$PendingDate) - as.Date.fact
 d1<-d1[(d1$DaysListToPending>=0),]
 d1<-d1[(d1$DaysListToPending<=(365*2)),]
 
-d1.mod<-d1[,c(5:10,12:71)]
+d1.mod<-d1[,c(5:10,12:72)]
 set.seed(1)
 n = nrow(d1.mod)
 trainIndex = sample(1:n, size=round(0.7*n),replace=FALSE)
