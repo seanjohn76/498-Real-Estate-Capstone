@@ -1,5 +1,5 @@
 #set working directory
-setwd("C:/Users/dsrjr/Documents/Capstone/Data_Files")
+setwd("C:/Users/lstottsg/Desktop/Laura School/Summer 2017/498/Data")
 
 #import files
 mls <- read.csv('mls_Data_20120315_20170315.csv')
@@ -55,9 +55,22 @@ mls2$FullBaths<-ifelse(mls2$FullBaths>10,NA,mls2$FullBaths)
 mls2$GarageSize.Cars<-ifelse(mls2$GarageSize.Cars>5,NA,mls2$GarageSize.Cars)
 mls2$LavsHalfBaths<-ifelse(mls2$LavsHalfBaths>10,NA,mls2$LavsHalfBaths)
 mls2$PricePerSqFt<-ifelse(mls2$PricePerSqFt>1000,NA,mls2$PricePerSqFt)
-mls2$MonthListed<-format(as.Date(mls2$ListDate), "%m")
-mls2$ChangeInPrice<-(mls2$OriginalListPrice-mls2$ListPrice)
-mls2$PercentPriceChange<-((mls2$OriginalListPrice-mls2$ListPrice)/mls2$OriginalListPrice)
+mls2$MonthListed<-as.factor(format(as.Date(mls2$ListDate), "%m"))
+mls2$ChangeInPrice<-as.numeric(ifelse(is.na(mls2$OriginalListPrice),0,
+                                  ifelse(is.na(mls2$ListPrice),0,(mls2$OriginalListPrice-mls2$ListPrice)))
+                                  )
+
+mls2$ChangeInPrice<-ifelse(mls2$ChangeInPrice>1000000,1000000,mls2$ChangeInPrice)
+mls2$PercentPriceChange<-ifelse(		
+                          mls2$ChangeInPrice==0,	
+                          0, 
+                          ifelse(is.na(mls2$OriginalListPrice),0,
+                                 ifelse(mls2$OriginalListPrice==0,
+                                          0,((mls2$ChangeInPrice/mls2$OriginalListPrice)*100))
+                          ))
+mls2$PercentPriceChange<-ifelse(mls2$PercentPriceChange<=(-100),-100,mls2$PercentPriceChange)	
+summary(mls2)
+
 
 #Select Subset of mls listing data fields
 mls3<-mls2[,c(4:6,15,58:59,63:67,69:71,73:92)]
@@ -83,7 +96,7 @@ mls3$PricePerSqFt<-ifelse(is.na(mls3$PricePerSqFt)==TRUE,M_PricePerSqFt,mls3$Pri
 mls3$YearBuilt<-ifelse(is.na(mls3$YearBuilt)==TRUE,M_YearBuilt,mls3$YearBuilt)
 summary(mls3)
 
-
+sum(is.na(mls3))
 
 #Remove records with missing original list price
 mls3<-mls3[(is.na(mls3$OriginalListPrice)==FALSE),]
@@ -133,13 +146,19 @@ d1$MarketHealthIndex<-ifelse(is.na(d1$MarketHealthIndex)==TRUE,mean(d1$MarketHea
 
 summary(d1)
 
+sum(is.na(d1))
+
 #add predictor column
 d1$DaysListToPending <- as.numeric(as.Date.factor(d1$PendingDate) - as.Date.factor(d1$ListDate))
 
 d1<-d1[(d1$DaysListToPending>=0),]
 d1<-d1[(d1$DaysListToPending<=(365*2)),]
 
+
 d1.mod<-d1[,c(5:10,12:72)]
+names(d1.mod)
+sum(is.na(d1.mod))
+
 set.seed(1)
 n = nrow(d1.mod)
 trainIndex = sample(1:n, size=round(0.7*n),replace=FALSE)
@@ -150,9 +169,3 @@ write.csv(d1, file="MLS_Summary.csv")
 write.csv(d1.mod, file="MLS_Modeling.csv")
 write.csv(train, file="MLS_Train.csv")
 write.csv(test, file="MLS_Test.csv")
-
-
-
-
-
-
