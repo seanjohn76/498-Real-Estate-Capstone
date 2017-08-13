@@ -55,9 +55,12 @@ mls2$FullBaths<-ifelse(mls2$FullBaths>10,NA,mls2$FullBaths)
 mls2$GarageSize.Cars<-ifelse(mls2$GarageSize.Cars>5,NA,mls2$GarageSize.Cars)
 mls2$LavsHalfBaths<-ifelse(mls2$LavsHalfBaths>10,NA,mls2$LavsHalfBaths)
 mls2$PricePerSqFt<-ifelse(mls2$PricePerSqFt>1000,NA,mls2$PricePerSqFt)
+mls2$MonthListed<-format(as.Date(mls2$ListDate), "%m")
+mls2$ChangeInPrice<-(mls2$OriginalListPrice-mls2$ListPrice)
+mls2$PercentPriceChange<-((mls2$OriginalListPrice-mls2$ListPrice)/mls2$OriginalListPrice)
 
 #Select Subset of mls listing data fields
-mls3<-mls2[,c(4:6,15,58:59,63:67,69:71,73:89)]
+mls3<-mls2[,c(4:6,15,58:59,63:67,69:71,73:92)]
 summary(mls3)
 
 
@@ -136,7 +139,7 @@ d1$DaysListToPending <- as.numeric(as.Date.factor(d1$PendingDate) - as.Date.fact
 d1<-d1[(d1$DaysListToPending>=0),]
 d1<-d1[(d1$DaysListToPending<=(365*2)),]
 
-d1.mod<-d1[,c(5:10,12:69)]
+d1.mod<-d1[,c(5:10,12:71)]
 set.seed(1)
 n = nrow(d1.mod)
 trainIndex = sample(1:n, size=round(0.7*n),replace=FALSE)
