@@ -1,0 +1,272 @@
+
+#############################################
+# PREDICT 498 #
+# Real Estate Group #
+#############################################
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# LOAD PACKAGES AND DATA
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# load libraries but install them first
+list.of.packages <- c(
+  "car" 
+  ,"missForest" #fill in missing values
+  ,"Hmisc"
+  ,"corrplot" #correlation plot
+  ,"lattice" #quantile plots
+  ,"leaps" # Crossfold validation for best subsets
+  ,"MASS" # for qda and lda
+  ,"gam" # for gam
+  ,"class" # for knn
+  ,"randomForest" #RF
+  ,"xgboost" #gradient boosting
+  ,"Matrix" #sparse.model.matrix
+  ,"glmnet"
+  ,"leaps"
+  ,"reshape"
+  ,"tibble"
+  ,"tidyverse" # tidyverse is a wrapper that contains dplyr, ggplot, tidyr, readr and a bunch of other great Hadley stuff
+  ,"survival"
+  ,"OIsurv" # Automatically loads KMsurv - bmt example
+  ,"ranger"
+  ,"doBy"
+  ,"rpart"
+  ,"rpart.plot"
+  ,"tree"
+  ,"rattle"
+  ,"caTools"
+  ,"ROCR"
+  ,"ResourceSelection"
+  ,"corrgram"
+  ,"MASS"
+  ,"inTrees"
+  ,"pROC"
+)
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+lapply(list.of.packages,library, character.only=T)
+
+#set working directory
+setwd("C:/Users/lstottsg/Desktop/Laura School/Summer 2017/498/Data")
+
+#import files
+train <- read.csv("MLS_Train.csv")
+test <- read.csv("MLS_Test.csv")
+
+require(rpart)
+require(rpart.plot)
+require(tree)
+require(rattle)
+require(caTools)
+require(ROCR)
+require(ResourceSelection)
+
+train$MonthListed <- as.factor(train$MonthListed)
+train$Beds <- as.factor(train$Beds)
+train$FullBaths <- as.factor(train$FullBaths)
+
+test$MonthListed <- as.factor(test$MonthListed)
+test$Beds <- as.factor(test$Beds)
+test$FullBaths <- as.factor(test$FullBaths)
+
+
+##########################################
+# REGRESSION & RANDOM FOREST ANALYSIS    #
+##########################################
+
+attach(train)
+
+##########################################
+# Variable Selection                     #
+##########################################
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#Partial Backward (before memory fail)
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+model1 <- lm(DaysListToPending ~ YearBuilt + TotalFinishedSF + Acreage + 
+  Beds + OriginalListPrice + ListPrice + FullBaths + GarageSize.Cars + 
+  LavsHalfBaths + PricePerSqFt + WaterAccess_ID + On_Lake_Michigan + 
+  On_Pond + Condo_ID + Multi_Fam_ID + Well_Water_ID + Walk_Out_Basement_ID + 
+  Finished_Basement_ID + Garage_ID + Concession_ID + Rental_ID + 
+  HighAcreage_ID + GP_Schools + Other_Good_Schools + MonthListed + 
+  ChangeInPrice + PercentPriceChange + pop_density + hh_density + 
+  vacant + value_hunit_oo_medn + hunit_age + pct_pop_growth + 
+  pct_hh_growth + MarketHealthIndex, data=train)
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#Variable Selection with Forward
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+mls_forward <- step(model1, data=train, direction="forward")
+
+forward_model <- DaysListToPending ~ YearBuilt + TotalFinishedSF + Acreage + Beds + 
+  OriginalListPrice + ListPrice + FullBaths + GarageSize.Cars + 
+  LavsHalfBaths + PricePerSqFt + WaterAccess_ID + On_Lake_Michigan + 
+  On_Pond + Condo_ID + Multi_Fam_ID + Well_Water_ID + Walk_Out_Basement_ID + 
+  Finished_Basement_ID + Garage_ID + Concession_ID + Rental_ID + 
+  HighAcreage_ID + GP_Schools + Other_Good_Schools + MonthListed + 
+  ChangeInPrice + PercentPriceChange + pop_density + hh_density + 
+  vacant + value_hunit_oo_medn + pct_pop_growth + pct_hh_growth + 
+  MarketHealthIndex
+#AIC = 4166728
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#Variable Selection with Backward
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+mls_backward <- step(model1, data=train, direction="backward")
+
+backward_model <- DaysListToPending ~ YearBuilt + TotalFinishedSF + Acreage + OriginalListPrice + 
+  ListPrice + FullBaths + GarageSize.Cars + LavsHalfBaths + 
+  PricePerSqFt + WaterAccess_ID + On_Lake_Michigan + On_Pond + 
+  Condo_ID + Multi_Fam_ID + Well_Water_ID + Walk_Out_Basement_ID + 
+  Finished_Basement_ID + Garage_ID + Concession_ID + Rental_ID + 
+  HighAcreage_ID + GP_Schools + Other_Good_Schools + MonthListed + 
+  ChangeInPrice + PercentPriceChange + pop_density + hh_density + 
+  vacant + value_hunit_oo_medn + pct_pop_growth + pct_hh_growth + 
+  MarketHealthIndex
+#AIC = 4166728
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#Variable Selection with Stepwise
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+mls_stepwise <- step(model1, data=train, direction="both")
+
+stepwise_model <- DaysListToPending ~ YearBuilt + TotalFinishedSF + Acreage + OriginalListPrice + 
+  ListPrice + FullBaths + GarageSize.Cars + LavsHalfBaths + 
+  PricePerSqFt + WaterAccess_ID + On_Lake_Michigan + On_Pond + 
+  Condo_ID + Multi_Fam_ID + Well_Water_ID + Walk_Out_Basement_ID + 
+  Finished_Basement_ID + Garage_ID + Concession_ID + Rental_ID + 
+  HighAcreage_ID + GP_Schools + Other_Good_Schools + MonthListed + 
+  ChangeInPrice + PercentPriceChange + pop_density + hh_density + 
+  vacant + value_hunit_oo_medn + pct_pop_growth + pct_hh_growth + 
+  MarketHealthIndex
+#AIC = 4166728
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Linear Regression
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+lm_forward <-lm(forward_model, data=train) 
+summary(lm_forward)
+pred.valid.lm_forward <- predict(lm_forward, newdata = test) # validation predictions
+
+lm_backward <-lm(backward_model, data=train) 
+summary(lm_backward)
+pred.valid.lm_backward<- predict(lm_backward, newdata = test) # validation predictions
+
+lm_stepwise <-lm(stepwise_model, data=train) 
+summary(lm_stepwise)
+pred.valid.lm_stepwise <- predict(lm_stepwise, newdata = test) # validation predictions
+
+
+##########################################
+#        SURVIVAL ANALYSIS               #
+##########################################
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Kaplan Meier Analysis
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+# Kaplan Meier Survival Curve
+y_mls <- Surv(train$DaysListToPending)
+y_mls
+
+
+fit1_mls <- survfit(y_mls ~ 1)
+summary(fit1_mls)
+
+#Kaplan Meier Plot with Confidence Bands - Confidence Bands don't work!!!
+
+plot(fit1_mls,
+     main = 'Kaplan Meier Plot with Confidence Bands')
+cb <- confBands(y_mls)
+lines(cb, col = "red",lty = 3)
+legend(1000, 0.99, legend = c('K-M Survival Estimate',
+                              'Pointwise Intervals', 'Hall-Werner Conf Bands'), lty = 1:3)
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#Cox Proportional Hazards Model
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# Fit Cox Model with Stepwise Selection Variables
+form1 <- formula(y_mls ~YearBuilt + TotalFinishedSF + Acreage + OriginalListPrice + 
+                   ListPrice + FullBaths + GarageSize.Cars + LavsHalfBaths + 
+                   PricePerSqFt + WaterAccess_ID + On_Lake_Michigan + On_Pond + 
+                   Condo_ID + Multi_Fam_ID + Well_Water_ID + Walk_Out_Basement_ID + 
+                   Finished_Basement_ID + Garage_ID + Concession_ID + Rental_ID + 
+                   HighAcreage_ID + GP_Schools + Other_Good_Schools + MonthListed + 
+                   ChangeInPrice + PercentPriceChange + pop_density + hh_density + 
+                   vacant + value_hunit_oo_medn + pct_pop_growth + pct_hh_growth + 
+                   MarketHealthIndex)
+
+cox_fit <- coxph(form1,data = train, model=TRUE)
+summary(cox_fit)
+
+#########################################Trying to predict on test data
+
+#compute survival curve from cox model
+surv_fit <- survfit(cox_fit, newdata=test)
+summary(surv_fit)
+
+sum.surv <- summary(cox_fit)
+c_index <- sum.surv$concordance
+
+plot(surv_fit)
+
+#predict on test data
+predict(cox_fit,type="lp", newdata=test)
+predict(cox_fit,type="expected", newdata=test)
+predict(cox_fit,type="risk",se.fit=TRUE, newdata=test)
+predict(cox_fit,type="terms",se.fit=TRUE, newdata=test)
+predict(cox_fit,type="survival",se.fit=TRUE) #this doesn't work!
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#Random Forests Model
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# ranger model
+r_fit_mls <- ranger(form,
+                    data = train,
+                    num.trees = 5,
+                    importance = "permutation",
+                    seed = 1)
+
+# Average the survival models
+pending_times <- r_fit_mls$unique.death.times
+surv_prob <- data.frame(r_fit_mls$survival)
+avg_prob <- sapply(surv_prob,mean)
+
+# Plot the survival models for each patient
+plot(r_fit_mls$unique.death.times,r_fit_mls$survival[1,], type = "l", 
+     ylim = c(0,1),
+     col = "red",
+     xlab = "pending sale",
+     ylab = "survival",
+     main = "Pending Sale Curves")
+
+for(n in c(2:137)){
+  lines(r_fit_mls$unique.death.times, r_fit_mls$survival[n,], type = "l", col = "red")
+}
+lines(death_times, avg_prob, lwd = 2)
+legend(100, 0.2, legend = c('Averages - black'))
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# FINAL RESULTS
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+
+
+
