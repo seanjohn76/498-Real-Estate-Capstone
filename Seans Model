@@ -1,0 +1,65 @@
+require(dplyr)
+require(data.table)
+#require(Rserve)
+require(gbm)
+require(xgboost)
+require(caret)
+
+#set working directory
+setwd('C:\\Users\\johns326\\Desktop\\Northwestern\\498')
+
+#load train data
+df.train <- fread('MLS_Train.csv', data.table=FALSE,na.strings=c('','NA'))
+names(df.train) <- toupper(gsub(' ','\\.',names(df.train)))
+# put variables in alphabetical order
+vars <- sort(names(df.train))
+df.train <- df.train[,vars]
+rm(vars)
+
+#load test data
+df.test <- fread('MLS_Test.csv', data.table=FALSE,na.strings=c('','NA'))
+names(df.test) <- toupper(gsub(' ','\\.',names(df.test)))
+# put variables in alphabetical order
+vars <- sort(names(df.test))
+df.test <- df.test[,vars]
+rm(vars)
+
+df.train <- select(df.train, everything(),-one_of('V1'))
+df.test <- select(df.test, everything(),-one_of('V1'))
+
+x.train <- df.train[,-5]
+y.train <- df.train[,5]
+
+x.test <- df.test[,-5]
+y.test <- df.test[,5]
+
+set.seed(76)
+# train actual model (This model takes about 45min to train on my computer)
+system.time({bst2 <- xgboost(data=as.matrix(x.train),
+              label=as.matrix(y.train),
+              nfold = 5,
+              nrounds = 1000,
+              max_depth = 12,
+              eta = .01,
+              min_child_weight = 0.5,
+              objective = "reg:linear",
+              early_stopping_rounds = 3,
+              prediction = TRUE,
+              maximize = FALSE,
+              verbose = 1)
+})
+bst2
+# Predict Values
+pred.bst2 <- predict(bst2,as.matrix(x.test))
+# Calculate RMSE
+rmse.bst2 <- sqrt(mean((y.test - pred.bst2)^2))
+rmse.bst2
+# 73.46753
+# Calculate MAE
+mae.bst2 <- mean(abs(y.test - pred.bst2))
+mae.bst2
+# 46.85497
+# Calculate SD
+sd.bst2<- sd((y.test - pred.bst2)^2)/sqrt(nrow(x.test))
+sd.bst2
+# 44.58224
